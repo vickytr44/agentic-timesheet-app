@@ -95,12 +95,11 @@ internal sealed class TimesheetSharedStateAgent : DelegatingAIAgent
         {
             allUpdates.Add(update);
 
-            // Yield all non-text updates (tool calls, etc.)
-            bool hasNonTextContent = update.Contents.Any(c => c is not TextContent);
-            if (hasNonTextContent)
-            {
-                yield return update;
-            }
+            // Yield ALL updates (tool calls AND text chunks) so the connection
+            // stays alive during slow LLM generation.  Text content here is the
+            // intermediate JSON state the LLM streams — the client will ignore it
+            // because the authoritative DataContent state update comes next.
+            yield return update;
         }
 
         var response = allUpdates.ToAgentResponse();
@@ -136,23 +135,19 @@ internal sealed class TimesheetSharedStateAgent : DelegatingAIAgent
             yield break;
         }
 
-        // Only narrate if something changed
-        var summaryMessage = new ChatMessage(
-            ChatRole.System,
-            [new TextContent("Please provide a concise summary about the latest change in at most two sentences.")]
-        );
-
-        var secondRunMessages = messages.Concat(response.Messages);
-
+        // Skip a second LLM round-trip for narration — build a concise summary
+        // directly from the current service state instead.  This eliminates the
+        // second slow LLM call and prevents BodyTimeoutError on the proxy stream.
         if (stateChanged)
         {
-            secondRunMessages = secondRunMessages.Append(summaryMessage);
-        }
+            var entryCount = _timesheetService.GetTimesheet().Count;
+            var status = _timesheetService.GetStatus();
+            var summaryText = $"Your timesheet has been updated: {entryCount} entr{(entryCount == 1 ? "y" : "ies")} logged, status is {status}.";
 
-        await foreach (var update in InnerAgent.RunStreamingAsync(secondRunMessages, session, options, cancellationToken).ConfigureAwait(false))
-        {
-            // Since we're not expecting JSON schema here, the model will output a friendly explanation.
-            yield return update;
+            yield return new AgentResponseUpdate
+            {
+                Contents = [new TextContent(summaryText)]
+            };
         }
     }
 

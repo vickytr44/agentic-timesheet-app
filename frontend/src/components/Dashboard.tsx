@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { useCoAgent } from "@copilotkit/react-core";
+import React, { useState, useEffect, useRef } from "react";
+import { useCoAgent, useCopilotChat } from "@copilotkit/react-core";
 import { Plus, CheckCircle, RefreshCw, RotateCcw } from "lucide-react";
 import SummaryCards from "./SummaryCards";
 import TimesheetTable from "./TimesheetTable";
@@ -52,6 +52,20 @@ export default function Dashboard() {
   useEffect(() => {
     refreshData();
   }, []);
+
+  // When the AI agent finishes responding (isLoading transitions true → false),
+  // re-fetch from the REST API so the table always reflects the latest backend state.
+  // This is the reliable trigger for agent-driven changes like ClearTimesheet.
+  const { isLoading } = useCopilotChat();
+  const wasLoadingRef = useRef(false);
+
+  useEffect(() => {
+    if (wasLoadingRef.current && !isLoading) {
+      // Agent just finished → sync the UI with authoritative backend state
+      refreshData();
+    }
+    wasLoadingRef.current = isLoading;
+  }, [isLoading]);
 
   const entries = state.entries || [];
   const status = state.status || "Draft";
