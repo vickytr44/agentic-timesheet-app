@@ -34,7 +34,7 @@ public class TimesheetAgentFactory(
         // 2. Create the Handbook Agent (Specialist)
         var handbookTools = new List<AITool>
         {
-            AIFunctionFactory.Create(handbookService.SearchHandbook)
+            AIFunctionFactory.Create(handbookService.SearchHandbookAsync)
         };
         var handbookAgent = new ChatClientAgent(
             chatClient: chatClient,

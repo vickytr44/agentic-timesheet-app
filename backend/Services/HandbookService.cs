@@ -4,59 +4,168 @@ using System.Linq;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Text;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.VectorData;
+using Microsoft.SemanticKernel.Connectors.SqliteVec;
+using OpenAI;
 using UglyToad.PdfPig;
-using UglyToad.PdfPig.Content;
 
 namespace TimesheetCopilotApp.Backend.Services;
+
+public class HandbookSectionRecord
+{
+    [VectorStoreKey]
+    public string Id { get; set; } = string.Empty;
+
+    [VectorStoreData]
+    public string Title { get; set; } = string.Empty;
+
+    [VectorStoreData]
+    public string Content { get; set; } = string.Empty;
+
+    [VectorStoreVector(Dimensions: 1536, DistanceFunction = DistanceFunction.CosineDistance)]
+    public ReadOnlyMemory<float> ContentEmbedding { get; set; }
+}
 
 public class HandbookService
 {
     private readonly string _filePath;
     private readonly ILogger<HandbookService> _logger;
-    private List<HandbookSection> _sections = new();
+    private readonly IEmbeddingGenerator<string, Embedding<float>> _embeddingGenerator;
+    private readonly string _connectionString;
+    private readonly Task _initTask;
+    private VectorStoreCollection<string, HandbookSectionRecord>? _collection;
 
-    public HandbookService(ILogger<HandbookService> logger)
+    public HandbookService(ILogger<HandbookService> logger, IConfiguration configuration)
     {
         _logger = logger;
 
         // Look for Handbook.pdf in the Data directory
-        _filePath = Path.Combine(AppContext.BaseDirectory, "Data", "Handbook.pdf");
-        if (!File.Exists(_filePath))
+        var dbDirectory = Path.Combine(AppContext.BaseDirectory, "Data");
+        if (!Directory.Exists(dbDirectory))
         {
-            // Fallback for development (bin/Debug/net10.0/ → project root)
-            _filePath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "Handbook.pdf");
+            // Fallback for development (bin/Debug/net10.0/ -> project root)
+            dbDirectory = Path.Combine(Directory.GetCurrentDirectory(), "Data");
+        }
+        _filePath = Path.Combine(dbDirectory, "Handbook.pdf");
+
+        var dbPath = Path.Combine(dbDirectory, "handbook.db");
+        if (!Directory.Exists(Path.GetDirectoryName(dbPath)))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
+        }
+        _connectionString = $"Data Source={dbPath}";
+
+        // Initialize embedding generator using OpenAI backup key or default OpenAI key
+        var apiKey = configuration["OpenAI:OpenAI_ApiKey_Backup"] 
+                     ?? configuration["OpenAI:ApiKey"] 
+                     ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+                     
+        var endpoint = configuration["OpenAI:Endpoint"] ?? "https://api.openai.com/v1";
+        
+        var isBackupKey = !string.IsNullOrEmpty(configuration["OpenAI:OpenAI_ApiKey_Backup"]);
+        
+        IEmbeddingGenerator<string, Embedding<float>>? primaryGenerator = null;
+        try
+        {
+            OpenAIClient openAIClient;
+            if (isBackupKey)
+            {
+                _logger.LogInformation("Using OpenAI Backup Key for embeddings.");
+                openAIClient = new OpenAIClient(new System.ClientModel.ApiKeyCredential(apiKey));
+                primaryGenerator = openAIClient.GetEmbeddingClient("text-embedding-ada-002").AsIEmbeddingGenerator();
+            }
+            else
+            {
+                _logger.LogInformation("Using standard Endpoint for embeddings.");
+                var clientOptions = new OpenAIClientOptions
+                {
+                    Endpoint = new Uri(endpoint)
+                };
+                openAIClient = new OpenAIClient(new System.ClientModel.ApiKeyCredential(apiKey), clientOptions);
+                var embedModel = endpoint.Contains("groq.com") ? "nomic-embed-text" : "text-embedding-ada-002";
+                primaryGenerator = openAIClient.GetEmbeddingClient(embedModel).AsIEmbeddingGenerator();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to initialize primary OpenAI embedding generator. Will use local fallback.");
         }
 
-        LoadHandbook();
+        _embeddingGenerator = new FallbackEmbeddingGenerator(primaryGenerator, _logger);
+
+        // Kick off lazy asynchronous initialization to avoid blocking startup
+        _initTask = InitializeAsync();
     }
 
-    private void LoadHandbook()
+    private async Task InitializeAsync()
     {
         try
         {
-            if (!File.Exists(_filePath))
+            _logger.LogInformation("Initializing Handbook SQLite Vector Store connection...");
+            var vectorStore = new SqliteVectorStore(_connectionString);
+            var col = vectorStore.GetCollection<string, HandbookSectionRecord>("HandbookSections");
+            
+            await col.EnsureCollectionExistsAsync();
+
+            if (!IsDatabasePopulated())
             {
-                _logger.LogWarning("Handbook PDF not found at: {Path}. RAG capability will be limited.", _filePath);
-                return;
+                await PopulateDatabaseAsync(col);
             }
 
-            using var pdf = PdfDocument.Open(_filePath);
+            _collection = col;
+            _logger.LogInformation("Handbook SQLite Vector Store successfully initialized.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to initialize Handbook SQLite Vector Store.");
+        }
+    }
 
-            // Build one section per page so each chunk is a focused, searchable unit.
-            // Pages with very little text (e.g. cover images) are skipped.
-            foreach (Page page in pdf.GetPages())
+    private bool IsDatabasePopulated()
+    {
+        try
+        {
+            using var connection = new Microsoft.Data.Sqlite.SqliteConnection(_connectionString);
+            connection.Open();
+            var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM HandbookSections";
+            var count = (long)(command.ExecuteScalar() ?? 0L);
+            return count > 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error checking if Handbook SQLite database is populated. It may not exist yet.");
+            return false;
+        }
+    }
+
+    private async Task PopulateDatabaseAsync(VectorStoreCollection<string, HandbookSectionRecord> collection)
+    {
+        _logger.LogInformation("Populating handbook vector database from PDF: {Path}", _filePath);
+        
+        if (!File.Exists(_filePath))
+        {
+            _logger.LogWarning("Handbook PDF not found at {Path}. RAG capability will be limited.", _filePath);
+            return;
+        }
+
+        try
+        {
+            using var pdf = PdfDocument.Open(_filePath);
+            _logger.LogInformation("Loading {PageCount} pages from Employee Handbook PDF...", pdf.NumberOfPages);
+
+            foreach (var page in pdf.GetPages())
             {
-                // Extract text from all words on the page, preserving reading order.
                 var words = page.GetWords().ToList();
                 if (words.Count == 0) continue;
 
                 var pageText = new StringBuilder();
-                string? prevLine = null;
-
                 foreach (var word in words)
                 {
-                    // PdfPig word bounding boxes: use Y to detect line breaks (simplified).
                     pageText.Append(word.Text);
                     pageText.Append(' ');
                 }
@@ -66,35 +175,46 @@ public class HandbookService
                 // Skip near-empty pages (less than 40 characters of actual content)
                 if (content.Length < 40) continue;
 
-                // Use the first non-trivial line as the section title
                 var firstLine = content.Split('\n', StringSplitOptions.RemoveEmptyEntries)
                                        .FirstOrDefault(l => l.Trim().Length > 3)
                                ?? $"Page {page.Number}";
 
-                _sections.Add(new HandbookSection
+                var title = firstLine.Trim().Length > 80
+                    ? firstLine.Trim()[..77] + "..."
+                    : firstLine.Trim();
+
+                var pageContent = $"[Page {page.Number}]\n{content}";
+
+                _logger.LogInformation("Generating semantic embedding for Page {PageNumber}...", page.Number);
+                var embeddings = await _embeddingGenerator.GenerateAsync(new[] { pageContent });
+                var embedding = embeddings[0];
+
+                var record = new HandbookSectionRecord
                 {
-                    Title = firstLine.Trim().Length > 80
-                        ? firstLine.Trim()[..77] + "..."
-                        : firstLine.Trim(),
-                    Content = $"[Page {page.Number}]\n{content}"
-                });
+                    Id = $"page_{page.Number}",
+                    Title = title,
+                    Content = pageContent,
+                    ContentEmbedding = embedding.Vector
+                };
+
+                await collection.UpsertAsync(record);
             }
 
-            _logger.LogInformation(
-                "Successfully loaded {Count} handbook sections from PDF: {Path}",
-                _sections.Count, _filePath);
+            _logger.LogInformation("Successfully completed handbook database population.");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load employee handbook PDF.");
+            _logger.LogError(ex, "Failed to parse Handbook PDF and populate vector DB.");
         }
     }
 
     [Description("Searches the employee handbook PDF for policies, rules, and guidelines on leaves, vacation, work hours, wellness stipend, and timesheet submissions.")]
-    public string SearchHandbook(
+    public async Task<string> SearchHandbookAsync(
         [Description("The search query detailing what company policy or guideline to look up")] string query)
     {
-        if (_sections.Count == 0)
+        await _initTask;
+
+        if (_collection == null)
         {
             return "Error: Employee handbook is currently unavailable.";
         }
@@ -104,63 +224,129 @@ public class HandbookService
             return "Please provide a specific query to search the handbook.";
         }
 
-        // Tokenize query into meaningful keywords
-        var keywords = query.Split(new[] { ' ', ',', '.', '?', '!' }, StringSplitOptions.RemoveEmptyEntries)
-                            .Select(w => w.Trim().ToLowerInvariant())
-                            .Where(w => w.Length > 2)
-                            .ToList();
-
-        if (keywords.Count == 0)
+        try
         {
-            keywords.Add(query.Trim().ToLowerInvariant());
-        }
+            _logger.LogInformation("Performing semantic search for: '{Query}'", query);
+            
+            var queryEmbeddings = await _embeddingGenerator.GenerateAsync(new[] { query });
+            var queryEmbedding = queryEmbeddings[0];
 
-        var scoredSections = _sections.Select(section =>
-        {
-            int score = 0;
-            string contentLower = section.Content.ToLowerInvariant();
-            string titleLower = section.Title.ToLowerInvariant();
+            var searchOptions = new VectorSearchOptions<HandbookSectionRecord>();
 
-            foreach (var keyword in keywords)
+            var searchResults = _collection.SearchAsync(queryEmbedding.Vector, top: 2, options: searchOptions);
+            var matchingContents = new List<string>();
+
+            await foreach (var result in searchResults)
             {
-                // Title matches carry higher weight
-                if (titleLower.Contains(keyword)) score += 5;
-
-                // Count every occurrence in content
-                int index = 0;
-                while ((index = contentLower.IndexOf(keyword, index, StringComparison.Ordinal)) != -1)
+                if (result.Record != null)
                 {
-                    score++;
-                    index += keyword.Length;
+                    matchingContents.Add(result.Record.Content);
                 }
             }
 
-            return new { Section = section, Score = score };
-        })
-        .Where(s => s.Score > 0)
-        .OrderByDescending(s => s.Score)
-        .ToList();
+            if (matchingContents.Count == 0)
+            {
+                _logger.LogInformation("No handbook sections matched query: '{Query}'", query);
+                return "No specific handbook section matches your query. General company policies require all employees to follow core collaboration hours (10 AM - 3 PM) and standard work hours (9 AM - 5 PM). Please contact HR for more detailed policy questions.";
+            }
 
-        if (scoredSections.Count == 0)
+            string resultText = string.Join("\n\n---\n\n", matchingContents);
+            _logger.LogInformation("Handbook semantic search completed successfully with {Count} result(s).", matchingContents.Count);
+            return resultText;
+        }
+        catch (Exception ex)
         {
-            _logger.LogInformation("No handbook sections matched query: '{Query}'.", query);
-            return "No specific handbook section matches your query. General company policies require all employees to follow core collaboration hours (10 AM - 3 PM) and standard work hours (9 AM - 5 PM). Please contact HR for more detailed policy questions.";
+            _logger.LogError(ex, "Error occurred during handbook semantic search query.");
+            return "An error occurred while searching the employee handbook. Please contact HR for assistance.";
+        }
+    }
+
+    private class FallbackEmbeddingGenerator : IEmbeddingGenerator<string, Embedding<float>>
+    {
+        private readonly IEmbeddingGenerator<string, Embedding<float>>? _primary;
+        private readonly ILogger _logger;
+        private bool _useFallback;
+
+        public FallbackEmbeddingGenerator(IEmbeddingGenerator<string, Embedding<float>>? primary, ILogger logger)
+        {
+            _primary = primary;
+            _logger = logger;
+            _useFallback = primary == null;
         }
 
-        // Return top 2 matching sections
-        var topResults = scoredSections.Take(2).Select(s => s.Section.Content);
-        string result = string.Join("\n\n---\n\n", topResults);
+        public void Dispose()
+        {
+            _primary?.Dispose();
+        }
 
-        _logger.LogInformation(
-            "Handbook search for '{Query}' → {Count} match(es). Top: '{Title}'",
-            query, scoredSections.Count, scoredSections[0].Section.Title);
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
 
-        return result;
+        public async Task<GeneratedEmbeddings<Embedding<float>>> GenerateAsync(
+            IEnumerable<string> values,
+            EmbeddingGenerationOptions? options = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (!_useFallback && _primary != null)
+            {
+                try
+                {
+                    return await _primary.GenerateAsync(values, options, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Primary embedding generator failed. Falling back to local deterministic hash vector generator.");
+                    _useFallback = true;
+                }
+            }
+
+            // Fallback: local deterministic hash vector generator (1536 dimensions)
+            var result = new List<Embedding<float>>();
+            foreach (var text in values)
+            {
+                var vector = new float[1536];
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    var words = text.ToLowerInvariant().Split(new[] { ' ', ',', '.', '?', '!', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var word in words)
+                    {
+                        int hash = GetDeterministicHashCode(word);
+                        int index = Math.Abs(hash) % 1536;
+                        vector[index] += 1.0f;
+                    }
+
+                    // Normalize vector to unit length
+                    float sumSq = 0;
+                    for (int i = 0; i < 1536; i++) sumSq += vector[i] * vector[i];
+                    if (sumSq > 0)
+                    {
+                        float norm = (float)Math.Sqrt(sumSq);
+                        for (int i = 0; i < 1536; i++) vector[i] /= norm;
+                    }
+                }
+
+                result.Add(new Embedding<float>(new ReadOnlyMemory<float>(vector)));
+            }
+
+            return new GeneratedEmbeddings<Embedding<float>>(result);
+        }
+
+        private int GetDeterministicHashCode(string str)
+        {
+            unchecked
+            {
+                int hash1 = (5381 << 16) + 5381;
+                int hash2 = hash1;
+
+                for (int i = 0; i < str.Length; i += 2)
+                {
+                    hash1 = ((hash1 << 5) + hash1) ^ str[i];
+                    if (i + 1 == str.Length)
+                        break;
+                    hash2 = ((hash2 << 5) + hash2) ^ str[i + 1];
+                }
+
+                return hash1 + (hash2 * 1566083941);
+            }
+        }
     }
-}
-
-public class HandbookSection
-{
-    public string Title { get; set; } = string.Empty;
-    public string Content { get; set; } = string.Empty;
 }
