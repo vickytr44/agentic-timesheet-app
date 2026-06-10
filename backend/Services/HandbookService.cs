@@ -3,8 +3,10 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Text.RegularExpressions;
+using System.Text;
 using Microsoft.Extensions.Logging;
+using UglyToad.PdfPig;
+using UglyToad.PdfPig.Content;
 
 namespace TimesheetCopilotApp.Backend.Services;
 
@@ -17,13 +19,15 @@ public class HandbookService
     public HandbookService(ILogger<HandbookService> logger)
     {
         _logger = logger;
-        // Determine handbook path relative to AppContext or workspace
-        _filePath = Path.Combine(AppContext.BaseDirectory, "Data", "employee_handbook.md");
+
+        // Look for Handbook.pdf in the Data directory
+        _filePath = Path.Combine(AppContext.BaseDirectory, "Data", "Handbook.pdf");
         if (!File.Exists(_filePath))
         {
-            // Fallback for development where BaseDirectory might point to bin/Debug/net10.0/
-            _filePath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "employee_handbook.md");
+            // Fallback for development (bin/Debug/net10.0/ → project root)
+            _filePath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "Handbook.pdf");
         }
+
         LoadHandbook();
     }
 
@@ -33,38 +37,60 @@ public class HandbookService
         {
             if (!File.Exists(_filePath))
             {
-                _logger.LogWarning($"Handbook file not found at: {_filePath}. RAG capability will be limited.");
+                _logger.LogWarning("Handbook PDF not found at: {Path}. RAG capability will be limited.", _filePath);
                 return;
             }
 
-            var content = File.ReadAllText(_filePath);
-            
-            // Split by "## " (markdown secondary headers) to divide into logical policy sections
-            var parts = Regex.Split(content, @"(?=## )");
-            
-            foreach (var part in parts)
-            {
-                if (string.IsNullOrWhiteSpace(part)) continue;
+            using var pdf = PdfDocument.Open(_filePath);
 
-                // Extract title (the first line after ##)
-                var lines = part.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                var title = lines.Length > 0 ? lines[0].Replace("##", "").Trim() : "General Policies";
-                
+            // Build one section per page so each chunk is a focused, searchable unit.
+            // Pages with very little text (e.g. cover images) are skipped.
+            foreach (Page page in pdf.GetPages())
+            {
+                // Extract text from all words on the page, preserving reading order.
+                var words = page.GetWords().ToList();
+                if (words.Count == 0) continue;
+
+                var pageText = new StringBuilder();
+                string? prevLine = null;
+
+                foreach (var word in words)
+                {
+                    // PdfPig word bounding boxes: use Y to detect line breaks (simplified).
+                    pageText.Append(word.Text);
+                    pageText.Append(' ');
+                }
+
+                var content = pageText.ToString().Trim();
+
+                // Skip near-empty pages (less than 40 characters of actual content)
+                if (content.Length < 40) continue;
+
+                // Use the first non-trivial line as the section title
+                var firstLine = content.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                                       .FirstOrDefault(l => l.Trim().Length > 3)
+                               ?? $"Page {page.Number}";
+
                 _sections.Add(new HandbookSection
                 {
-                    Title = title,
-                    Content = part.Trim()
+                    Title = firstLine.Trim().Length > 80
+                        ? firstLine.Trim()[..77] + "..."
+                        : firstLine.Trim(),
+                    Content = $"[Page {page.Number}]\n{content}"
                 });
             }
-            _logger.LogInformation($"Successfully loaded {_sections.Count} handbook sections from {_filePath}.");
+
+            _logger.LogInformation(
+                "Successfully loaded {Count} handbook sections from PDF: {Path}",
+                _sections.Count, _filePath);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load employee handbook.");
+            _logger.LogError(ex, "Failed to load employee handbook PDF.");
         }
     }
 
-    [Description("Searches the employee handbook for policies, rules, and guidelines on leaves, vacation, work hours, wellness stipend, and timesheet submissions.")]
+    [Description("Searches the employee handbook PDF for policies, rules, and guidelines on leaves, vacation, work hours, wellness stipend, and timesheet submissions.")]
     public string SearchHandbook(
         [Description("The search query detailing what company policy or guideline to look up")] string query)
     {
@@ -78,7 +104,7 @@ public class HandbookService
             return "Please provide a specific query to search the handbook.";
         }
 
-        // Tokenize query into words, ignoring small words
+        // Tokenize query into meaningful keywords
         var keywords = query.Split(new[] { ' ', ',', '.', '?', '!' }, StringSplitOptions.RemoveEmptyEntries)
                             .Select(w => w.Trim().ToLowerInvariant())
                             .Where(w => w.Length > 2)
@@ -97,17 +123,14 @@ public class HandbookService
 
             foreach (var keyword in keywords)
             {
-                // Title matches get higher weights
-                if (titleLower.Contains(keyword))
-                {
-                    score += 5;
-                }
-                
-                // Content matches
+                // Title matches carry higher weight
+                if (titleLower.Contains(keyword)) score += 5;
+
+                // Count every occurrence in content
                 int index = 0;
                 while ((index = contentLower.IndexOf(keyword, index, StringComparison.Ordinal)) != -1)
                 {
-                    score += 1;
+                    score++;
                     index += keyword.Length;
                 }
             }
@@ -120,15 +143,18 @@ public class HandbookService
 
         if (scoredSections.Count == 0)
         {
-            _logger.LogInformation($"No handbook sections matched the query: '{query}'. Returning basic guidance.");
+            _logger.LogInformation("No handbook sections matched query: '{Query}'.", query);
             return "No specific handbook section matches your query. General company policies require all employees to follow core collaboration hours (10 AM - 3 PM) and standard work hours (9 AM - 5 PM). Please contact HR for more detailed policy questions.";
         }
 
-        // Return top 2 matching sections to keep it concise but relevant
+        // Return top 2 matching sections
         var topResults = scoredSections.Take(2).Select(s => s.Section.Content);
         string result = string.Join("\n\n---\n\n", topResults);
-        
-        _logger.LogInformation($"Handbook search for '{query}' returned {scoredSections.Count} matches. Top section: '{scoredSections[0].Section.Title}'");
+
+        _logger.LogInformation(
+            "Handbook search for '{Query}' → {Count} match(es). Top: '{Title}'",
+            query, scoredSections.Count, scoredSections[0].Section.Title);
+
         return result;
     }
 }
