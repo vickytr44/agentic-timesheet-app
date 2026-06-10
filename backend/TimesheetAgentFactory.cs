@@ -3,7 +3,6 @@ using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 using System.Text.Json;
-using TimesheetCopilotApp.Backend;
 
 namespace backend;
 

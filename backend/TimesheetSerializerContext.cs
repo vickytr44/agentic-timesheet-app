@@ -1,7 +1,7 @@
 using backend.Models;
 using System.Text.Json.Serialization;
 
-namespace Backend;
+namespace backend;
 
 public class TimesheetStateSnapshot
 {

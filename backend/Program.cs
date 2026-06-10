@@ -2,7 +2,7 @@ using backend.Services;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.Extensions.AI;
-using TimesheetCopilotApp.Backend;
+using backend;
 
 var builder = WebApplication.CreateBuilder(args);
 

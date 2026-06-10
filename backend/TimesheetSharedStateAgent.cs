@@ -1,5 +1,4 @@
 using backend.Services;
-using Backend;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using System.Diagnostics.CodeAnalysis;
