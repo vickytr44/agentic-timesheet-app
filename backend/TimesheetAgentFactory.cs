@@ -59,11 +59,12 @@ public class TimesheetAgentFactory(
             description: "Routes users to the appropriate agent"
         );
 
-        // 4. Build the workflow using the Handoff pattern
+        // 4. Build the workflow using the Handoff pattern with explicit reasons (descriptions for the LLM)
         var workflow = AgentWorkflowBuilder.CreateHandoffBuilderWith(triageAgent)
-            .WithHandoffs(triageAgent, new AIAgent[] { timesheetAgent, handbookAgent })
-            .WithHandoff(timesheetAgent, triageAgent)
-            .WithHandoff(handbookAgent, triageAgent)
+            .WithHandoff(triageAgent, timesheetAgent, "Use this tool to transition the conversation to the Timesheet Agent when the user wants to log hours, view timesheets, submit, or unlock timesheets.")
+            .WithHandoff(triageAgent, handbookAgent, "Use this tool to transition the conversation to the Handbook Agent when the user asks questions about company policies, employee benefits, remote work, sick leaves, wellness stipend, or HR guidelines.")
+            .WithHandoff(timesheetAgent, triageAgent, "Use this tool ONLY if the user's request is unrelated to timesheets (e.g. they ask about company policies, leaves, benefits, or employee handbook questions).")
+            .WithHandoff(handbookAgent, triageAgent, "Use this tool ONLY if the user's request is unrelated to employee handbook/HR policies (e.g. they want to log hours, modify timesheets, submit, or unlock timesheets).")
             .Build();
 
         // 5. Return the workflow wrapped as a single AIAgent
