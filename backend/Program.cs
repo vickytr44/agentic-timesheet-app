@@ -29,6 +29,7 @@ builder.Services.AddCors(options =>
 
 // 2. Register standard services
 builder.Services.AddSingleton<TimesheetService>();
+builder.Services.AddSingleton<HandbookService>();
 builder.Services.AddHttpClient().AddLogging();
 builder.Services.ConfigureHttpJsonOptions(options => 
 {
@@ -73,9 +74,11 @@ app.Use(async (context, next) =>
 
 // 4. Instantiate Agent using Factory
 var timesheetService = app.Services.GetRequiredService<TimesheetService>();
+var handbookService = app.Services.GetRequiredService<HandbookService>();
 var agent = new TimesheetAgentFactory(
     chatClient,
     timesheetService,
+    handbookService,
     System.Text.Json.JsonSerializerOptions.Default
 ).CreateTimesheetAgent();
 
