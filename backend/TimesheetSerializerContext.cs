@@ -1,9 +1,7 @@
-using System;
-using System.Collections.Generic;
+using backend.Models;
 using System.Text.Json.Serialization;
-using TimesheetCopilotApp.Backend.Models;
 
-namespace TimesheetCopilotApp.Backend;
+namespace Backend;
 
 public class TimesheetStateSnapshot
 {

@@ -1,9 +1,7 @@
+using backend.Services;
 using Microsoft.Extensions.AI;
-using System.ComponentModel;
-using TimesheetCopilotApp.Backend.Models;
-using TimesheetCopilotApp.Backend.Services;
 
-namespace TimesheetCopilotApp.Backend;
+namespace backend;
 
 /// <summary>
 /// Static tool definitions for the Timesheet Agent, following the AgentTools pattern.

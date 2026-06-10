@@ -1,8 +1,6 @@
-
-using System;
 using System.Text.Json.Serialization;
 
-namespace TimesheetCopilotApp.Backend.Models
+namespace backend.Models
 {
     public class TimesheetEntry
     {

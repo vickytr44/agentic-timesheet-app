@@ -1,10 +1,7 @@
-using System;
-using System.Collections.Generic;
+using backend.Models;
 using System.ComponentModel;
-using System.Linq;
-using TimesheetCopilotApp.Backend.Models;
 
-namespace TimesheetCopilotApp.Backend.Services
+namespace backend.Services
 {
     public class TimesheetService
     {

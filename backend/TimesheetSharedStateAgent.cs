@@ -1,17 +1,12 @@
-using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
+using backend.Services;
+using Backend;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
-using TimesheetCopilotApp.Backend.Models;
-using TimesheetCopilotApp.Backend.Services;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
 
-namespace TimesheetCopilotApp.Backend;
+namespace backend;
 
 [SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes", Justification = "Instantiated by TimesheetAgentFactory")]
 internal sealed class TimesheetSharedStateAgent : DelegatingAIAgent

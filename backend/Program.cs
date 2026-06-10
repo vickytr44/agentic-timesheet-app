@@ -1,17 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.Text.Json;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.AI;
+using backend.Services;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+using Microsoft.Extensions.AI;
 using TimesheetCopilotApp.Backend;
-using TimesheetCopilotApp.Backend.Models;
-using TimesheetCopilotApp.Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 

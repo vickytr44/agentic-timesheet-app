@@ -1,11 +1,11 @@
-using System.Collections.Generic;
-using System.Text.Json;
+using backend.Services;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
-using TimesheetCopilotApp.Backend.Services;
+using System.Text.Json;
+using TimesheetCopilotApp.Backend;
 
-namespace TimesheetCopilotApp.Backend;
+namespace backend;
 
 public class TimesheetAgentFactory(
     IChatClient chatClient,

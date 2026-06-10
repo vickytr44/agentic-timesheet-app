@@ -1,34 +1,13 @@
-using System;
-using System.IO;
-using System.Linq;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
+using backend.Models;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.VectorData;
 using Microsoft.SemanticKernel.Connectors.SqliteVec;
 using OpenAI;
+using System.ComponentModel;
+using System.Text;
 using UglyToad.PdfPig;
 
-namespace TimesheetCopilotApp.Backend.Services;
-
-public class HandbookSectionRecord
-{
-    [VectorStoreKey]
-    public string Id { get; set; } = string.Empty;
-
-    [VectorStoreData]
-    public string Title { get; set; } = string.Empty;
-
-    [VectorStoreData]
-    public string Content { get; set; } = string.Empty;
-
-    [VectorStoreVector(Dimensions: 1536, DistanceFunction = DistanceFunction.CosineDistance)]
-    public ReadOnlyMemory<float> ContentEmbedding { get; set; }
-}
+namespace backend.Services;
 
 public class HandbookService
 {
