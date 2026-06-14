@@ -53,16 +53,6 @@ namespace backend.Services
             return _requests.OrderByDescending(r => r.StartDate).ToList();
         }
 
-        [Description("Opens the leave application form on the frontend to allow the user to apply for leave. Call this when the user expresses intent to apply for leave or take time off.")]
-        public string ShowLeaveForm(
-            [Description("The start date of the leave (YYYY-MM-DD), if specified by the user.")] string startDate = "",
-            [Description("The end date of the leave (YYYY-MM-DD), if specified by the user.")] string endDate = "",
-            [Description("The type of leave (e.g. Vacation, Sick, Parental), if specified by the user.")] string leaveType = "",
-            [Description("The reason or description for the leave, if specified by the user.")] string reason = "")
-        {
-            return "Leave form opened on frontend.";
-        }
-
         [Description("Applies for a new leave request. Deducts balances and automatically populates the user's timesheet for those dates.")]
         public LeaveRequest ApplyLeave(
             [Description("Start date of leave in YYYY-MM-DD format.")] DateOnly startDate,

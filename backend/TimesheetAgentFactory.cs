@@ -53,14 +53,12 @@ public class TimesheetAgentFactory(
         {
             AIFunctionFactory.Create(leaveService.GetLeaveBalances),
             AIFunctionFactory.Create(leaveService.GetLeaveRequests),
-            AIFunctionFactory.Create(leaveService.ShowLeaveForm)
+            AIFunctionFactory.Create(leaveService.ApplyLeave)
         };
         var leaveAgent = new ChatClientAgent(
             chatClient: chatClient,
             name: "leave_agent",
             instructions: "You are an expert Leave and Time Off Assistant. Your job is to help users check their leave balances and apply for leaves. " +
-                          "If the user wants to apply for leave, you MUST invoke the frontend tool 'showLeaveForm' to open the leave request form for them. " +
-                          "Pre-populate as many parameters (startDate, endDate, leaveType, reason) as possible from the user's input. " +
                           "Always refer to the user's available leave balances when requested. " +
                           "If the request is unrelated to leaves (e.g. they want to log hours, modify timesheets, search general handbook policies), " +
                           "you must hand off back to the triage_agent.",
