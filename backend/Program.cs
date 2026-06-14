@@ -21,6 +21,7 @@ builder.Services.AddCors(options =>
 // 2. Register standard services
 builder.Services.AddSingleton<TimesheetService>();
 builder.Services.AddSingleton<HandbookService>();
+builder.Services.AddSingleton<LeaveService>();
 builder.Services.AddHttpClient().AddLogging();
 builder.Services.ConfigureHttpJsonOptions(options => 
 {
@@ -66,10 +67,12 @@ app.Use(async (context, next) =>
 // 4. Instantiate Agent using Factory
 var timesheetService = app.Services.GetRequiredService<TimesheetService>();
 var handbookService = app.Services.GetRequiredService<HandbookService>();
+var leaveService = app.Services.GetRequiredService<LeaveService>();
 var agent = new TimesheetAgentFactory(
     chatClient,
     timesheetService,
     handbookService,
+    leaveService,
     System.Text.Json.JsonSerializerOptions.Default
 ).CreateTimesheetAgent();
 
@@ -79,6 +82,21 @@ app.MapAGUI("/", agent);
 // 6. Expose REST endpoints for direct frontend synchronization
 app.MapGet("/api/timesheet", (TimesheetService service) => Results.Ok(service.GetTimesheet()));
 app.MapGet("/api/timesheet/summary", (TimesheetService service) => Results.Ok(service.GetSummary()));
+
+app.MapGet("/api/leave", (LeaveService service) => Results.Ok(service.GetLeaveRequests()));
+app.MapGet("/api/leave/balances", (LeaveService service) => Results.Ok(service.GetLeaveBalances()));
+app.MapPost("/api/leave/apply", (LeaveService service, LeaveRequestInput input) =>
+{
+    try
+    {
+        var request = service.ApplyLeave(input.StartDate, input.EndDate, input.LeaveType, input.Reason);
+        return Results.Ok(request);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
 
 app.MapPost("/api/timesheet/entry", (TimesheetService service, TimesheetEntryInput input) =>
 {
@@ -116,5 +134,6 @@ app.Run("http://localhost:5116");
 
 // Input model for REST API
 public record TimesheetEntryInput(string Date, string Project, double Hours, string Description);
+public record LeaveRequestInput(string StartDate, string EndDate, string LeaveType, string Reason);
 
 public partial class Program { }

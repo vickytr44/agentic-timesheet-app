@@ -451,3 +451,92 @@ h1, h2, h3, h4 {
   font-size: 0.75rem !important;
   opacity: 0.8 !important;
 }
+
+/* Tabs Navigation Styling */
+.tab-navigation {
+  display: flex;
+  gap: 1.5rem;
+  border-bottom: 1px solid var(--border-card);
+  margin-top: 1rem;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.75rem 0.5rem;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.tab-btn:hover {
+  color: #fff;
+}
+
+.tab-btn.active {
+  color: rgb(var(--color-primary));
+  border-bottom-color: rgb(var(--color-primary));
+}
+
+/* Leave Badges */
+.badge-approved {
+  background: rgba(var(--color-success) / 0.15);
+  border: 1px solid rgb(var(--color-success) / 0.3);
+  color: rgb(var(--color-success));
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.badge-pending {
+  background: rgba(var(--color-warning) / 0.15);
+  border: 1px solid rgb(var(--color-warning) / 0.3);
+  color: rgb(var(--color-warning));
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* Leave Balances Grid */
+.balances-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+/* Modal Overlay & Base styles (fallback for LeaveModal) */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(4, 5, 10, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal-content {
+  width: 100%;
+  max-width: 500px;
+  margin: 1.5rem;
+  padding: 2rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-accent);
+  border-radius: 16px;
+  box-shadow: var(--shadow-premium);
+  backdrop-filter: blur(16px);
+}
+
