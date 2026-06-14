@@ -18,5 +18,5 @@ public sealed class HandbookSectionRecord
     public string Content { get; set; } = string.Empty;
 
     [VectorStoreVector(Dimensions: 768, DistanceFunction = DistanceFunction.CosineDistance)]
-    public ReadOnlyMemory<float> ContentEmbedding { get; set; }
+    public float[] ContentEmbedding { get; set; } = [];
 }

@@ -58,7 +58,8 @@ public sealed class HandbookService
             _logger.LogInformation("Performing semantic search for: '{Query}'", query);
 
             var queryEmbeddings = await _embeddingGenerator.GenerateAsync([query]);
-            var queryVector = queryEmbeddings[0].Vector;
+            var queryVectorMemory = queryEmbeddings[0].Vector;
+            var queryVector = queryVectorMemory.ToArray();
 
             var searchOptions = new VectorSearchOptions<HandbookSectionRecord>();
             var results = _collection.SearchAsync(queryVector, top: 2, options: searchOptions);

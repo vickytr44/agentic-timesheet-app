@@ -31,24 +31,54 @@ public sealed class HandbookIndexerService(
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var content = ExtractPageText(page);
-            if (content is null)
+            try
             {
-                logger.LogDebug("Skipping page {PageNumber} (insufficient content).", page.Number);
-                skipped++;
-                continue;
+                var content = ExtractPageText(page);
+                if (content is null)
+                {
+                    logger.LogDebug("Skipping page {PageNumber} (insufficient content).", page.Number);
+                    skipped++;
+                    continue;
+                }
+
+                logger.LogInformation("[{Current}/{Total}] Embedding page {PageNumber}...",
+                    page.Number, pdf.NumberOfPages, page.Number);
+
+                var embeddings = await embeddingGenerator.GenerateAsync(
+                    [content], cancellationToken: cancellationToken);
+
+                if (embeddings == null || embeddings.Count == 0)
+                {
+                    logger.LogError("Embedding generator returned null or empty result for page {PageNumber}", page.Number);
+                    skipped++;
+                    continue;
+                }
+
+                var embedding = embeddings[0].Vector;
+                if (embedding.IsEmpty)
+                {
+                    logger.LogError("Generated embedding is empty for page {PageNumber}", page.Number);
+                    skipped++;
+                    continue;
+                }
+
+                logger.LogDebug("Generated embedding with {Dimensions} dimensions", embedding.Length);
+
+                var record = BuildRecord(page.Number, content, embedding);
+                var embeddingArray = record.ContentEmbedding;
+                logger.LogDebug("Record built: Id={Id}, EmbeddingLength={Length}, EmbeddingNull={IsNull}, EmbeddingEmpty={IsEmpty}", 
+                    record.Id, embeddingArray?.Length ?? 0, embeddingArray == null, embeddingArray?.Length == 0);
+
+                await collection.UpsertAsync(record, cancellationToken);
+                logger.LogDebug("Successfully upserted record {Id}", record.Id);
+
+                indexed++;
             }
-
-            logger.LogInformation("[{Current}/{Total}] Embedding page {PageNumber}...",
-                page.Number, pdf.NumberOfPages, page.Number);
-
-            var embeddings = await embeddingGenerator.GenerateAsync(
-                [content], cancellationToken: cancellationToken);
-
-            var record = BuildRecord(page.Number, content, embeddings[0].Vector);
-            await collection.UpsertAsync(record, cancellationToken);
-
-            indexed++;
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error processing page {PageNumber}", page.Number);
+                skipped++;
+            }
         }
 
         logger.LogInformation(
@@ -89,7 +119,7 @@ public sealed class HandbookIndexerService(
             Id = $"page_{pageNumber}",
             Title = ExtractTitle(content, pageNumber),
             Content = content,
-            ContentEmbedding = embedding
+            ContentEmbedding = embedding.ToArray()
         };
     }
 

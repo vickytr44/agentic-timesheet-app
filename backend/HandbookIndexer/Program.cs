@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.VectorData;
 using Microsoft.SemanticKernel.Connectors.SqliteVec;
 using OpenAI;
 using System.ClientModel;
@@ -85,21 +86,148 @@ IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator =
 // Open (or create) the SQLite vector store collection
 // ---------------------------------------------------------------------------
 var connectionString = $"Data Source={dbPath}";
-var vectorStore = new SqliteVectorStore(connectionString);
-var collection = vectorStore.GetCollection<string, HandbookSectionRecord>("HandbookSections");
 
-logger.LogInformation("Ensuring vector store collection exists at: {DbPath}", dbPath);
-await collection.EnsureCollectionExistsAsync();
+// Delete the old database if it exists so it can be recreated with the proper schema
+if (File.Exists(dbPath))
+{
+    logger.LogInformation("Removing old database to recreate with proper schema: {DbPath}", dbPath);
+    try
+    {
+        File.Delete(dbPath);
+        logger.LogInformation("Old database deleted successfully");
 
-// ---------------------------------------------------------------------------
-// Run the indexer
-// ---------------------------------------------------------------------------
-var indexerService = new HandbookIndexerService(
-    host.Services.GetRequiredService<ILogger<HandbookIndexerService>>(),
-    embeddingGenerator,
-    collection);
+        // Also delete WAL and SHM files if they exist
+        var walPath = dbPath + "-wal";
+        var shmPath = dbPath + "-shm";
+        if (File.Exists(walPath)) File.Delete(walPath);
+        if (File.Exists(shmPath)) File.Delete(shmPath);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to delete old database files");
+    }
+}
+else
+{
+    logger.LogInformation("No existing database found at {DbPath}, creating new one", dbPath);
+}
 
-await indexerService.IndexAsync(pdfPath);
+using (var vectorStore = new SqliteVectorStore(connectionString))
+{
+    var collection = vectorStore.GetCollection<string, HandbookSectionRecord>("HandbookSections");
 
-logger.LogInformation("Done. You can now start the backend and query the handbook.");
+    logger.LogInformation("Creating vector store collection with proper schema at: {DbPath}", dbPath);
+    await collection.EnsureCollectionExistsAsync();
+
+    // ---------------------------------------------------------------------------
+    // Run the indexer
+    // ---------------------------------------------------------------------------
+    var indexerService = new HandbookIndexerService(
+        host.Services.GetRequiredService<ILogger<HandbookIndexerService>>(),
+        embeddingGenerator,
+        collection);
+
+    try
+    {
+        await indexerService.IndexAsync(pdfPath);
+        logger.LogInformation("Done. Verifying records were saved to the database...");
+
+        // Verify records were saved by querying the database directly
+        try
+        {
+            using var connection = new Microsoft.Data.Sqlite.SqliteConnection(connectionString);
+            connection.Open();
+            var command = connection.CreateCommand();
+
+            command.CommandText = "SELECT COUNT(*) FROM HandbookSections";
+            var recordCount = (long)(command.ExecuteScalar() ?? 0L);
+            logger.LogInformation("Database now contains {Count} handbook records.", recordCount);
+
+            if (recordCount == 0)
+            {
+                logger.LogError("WARNING: No records were saved to the database. Please check the indexing process.");
+                return 1;
+            }
+
+            // Check vector chunks table
+            try
+            {
+                command.CommandText = "SELECT COUNT(*) as chunk_count FROM vec_HandbookSections_vector_chunks00";
+                var vectorChunkCount = (long)(command.ExecuteScalar() ?? 0L);
+                logger.LogInformation("Vector chunk rows stored: {Count}", vectorChunkCount);
+
+                if (vectorChunkCount > 0)
+                {
+                    command.CommandText = "SELECT COUNT(DISTINCT rowid) as unique_rowids FROM vec_HandbookSections_vector_chunks00";
+                    var uniqueRowIds = (long)(command.ExecuteScalar() ?? 0L);
+                    logger.LogInformation("Unique vector chunk rowids: {Count}", uniqueRowIds);
+
+                    // Get size of vectors column
+                    command.CommandText = "SELECT MAX(LENGTH(vectors)) as max_vector_size FROM vec_HandbookSections_vector_chunks00";
+                    var maxVectorSize = command.ExecuteScalar();
+                    logger.LogInformation("Max vector size in bytes: {Size}", maxVectorSize ?? 0);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogInformation("Error checking vector chunks details: {Message}", ex.Message);
+            }
+
+            // Try to get a sample record
+            command.CommandText = "SELECT Id, Title, LENGTH(Content) as ContentLength FROM HandbookSections LIMIT 1";
+            using var reader = command.ExecuteReader();
+            if (reader.Read())
+            {
+                logger.LogInformation("Sample record - Id: {Id}, Title: {Title}, ContentLength: {Length}",
+                    reader["Id"], reader["Title"], reader["ContentLength"]);
+            }
+
+            logger.LogInformation("Successfully indexed and persisted handbook records. You can now start the backend and query the handbook.");
+
+            // Quick test: Try a semantic search to verify embeddings are working
+            logger.LogInformation("=== Testing Semantic Search ===");
+            try
+            {
+                var testQuery = "What is the company leave policy?";
+                var queryEmbeddings = await embeddingGenerator.GenerateAsync([testQuery]);
+                var queryVector = queryEmbeddings[0].Vector.ToArray();
+                logger.LogInformation("Generated test query embedding with {Dimensions} dimensions", queryVector.Length);
+
+                var searchOptions = new VectorSearchOptions<HandbookSectionRecord>();
+                var searchResults = collection.SearchAsync(queryVector, top: 2, options: searchOptions);
+
+                int resultCount = 0;
+                await foreach (var result in searchResults)
+                {
+                    resultCount++;
+                    logger.LogInformation("Search result {Count}: Id={Id}, Title={Title}, Score={Score}",
+                        resultCount, result.Record?.Id, result.Record?.Title, result.Score);
+                }
+
+                if (resultCount == 0)
+                {
+                    logger.LogWarning("WARNING: Semantic search returned no results. Embeddings may not be properly indexed.");
+                }
+                else
+                {
+                    logger.LogInformation("✓ Semantic search is working! Found {Count} relevant sections.", resultCount);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error during semantic search test");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not verify database content, but indexing may still have succeeded.");
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Indexing failed");
+        return 1;
+    }
+}
+// The 'using' statement ensures the vector store is disposed and all writes are committed to SQLite
 return 0;
