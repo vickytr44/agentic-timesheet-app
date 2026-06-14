@@ -70,19 +70,19 @@ public class TimesheetAgentFactory(
         var triageAgent = new ChatClientAgent(
             chatClient: chatClient,
             name: "triage_agent",
-            instructions: "You are the primary assistant coordinator. Your job is to route the user's request. " +
-                          "- For logging hours, timesheets, submitting, or viewing timesheet status, hand off to the timesheet_agent. " +
-                          "- For checking personal leave balances, applying for leaves, or viewing leave requests/history, hand off to the leave_agent. " +
-                          "- For general HR policies, employee handbooks, general leave policies, benefits, remote work, wellness stipend, or office hours, hand off to the handbook_agent. " +
+            instructions: "You are the primary assistant coordinator. Your job is to route the user's request to the correct specialist.\n" +
+                          "- If the user wants to apply for leave, submit a leave request, or check their personal leave balances/history, you MUST hand off to the leave_agent.\n" +
+                          "- If the user wants to log hours, modify, submit, view, or unlock their timesheet, you MUST hand off to the timesheet_agent.\n" +
+                          "- If the user asks general informational questions about company policies, employee benefits, remote work guidelines, leave rules/stipends, or HR handbooks, hand off to the handbook_agent.\n" +
                           "- If the request is generic (like hello), greet the user, explain what you can help with (timesheets, leaves, or handbook policies), and ask how you can assist.",
             description: "Routes users to the appropriate agent"
         );
 
         // 5. Build the workflow using the Handoff pattern with explicit reasons (descriptions for the LLM)
         var workflow = AgentWorkflowBuilder.CreateHandoffBuilderWith(triageAgent)
-            .WithHandoff(triageAgent, timesheetAgent, "Use this tool to transition the conversation to the Timesheet Agent when the user wants to log hours, view timesheets, submit, or unlock timesheets.")
-            .WithHandoff(triageAgent, leaveAgent, "Use this tool to transition the conversation to the Leave Agent when the user wants to apply for leave, check their leave balances, or see their leave requests.")
-            .WithHandoff(triageAgent, handbookAgent, "Use this tool to transition the conversation to the Handbook Agent when the user asks general questions about company policies, employee benefits, remote work, sick leaves guidelines, wellness stipend, or HR guidelines.")
+            .WithHandoff(triageAgent, timesheetAgent, "Use this tool to transition to the Timesheet Agent when the user wants to perform actions on their timesheet (e.g. log hours, submit, unlock, view).")
+            .WithHandoff(triageAgent, leaveAgent, "Use this tool ONLY when the user wants to take action on leaves (e.g., apply for leave, submit a leave request, check personal leave balances, view leave requests).")
+            .WithHandoff(triageAgent, handbookAgent, "Use this tool ONLY when the user asks general questions, read-only policy lookups, or informational questions about the employee handbook, HR rules, remote work guidelines, or leave policies.")
             .WithHandoff(timesheetAgent, triageAgent, "Use this tool ONLY if the user's request is unrelated to timesheets (e.g. they ask about company policies, leaves, benefits, or employee handbook questions).")
             .WithHandoff(handbookAgent, triageAgent, "Use this tool ONLY if the user's request is unrelated to employee handbook/HR policies (e.g. they want to log hours, modify timesheets, submit, or unlock timesheets).")
             .WithHandoff(leaveAgent, triageAgent, "Use this tool ONLY if the user's request is unrelated to leaves (e.g. they want to log hours, modify timesheets, submit, or unlock timesheets, or search handbook policies).")
