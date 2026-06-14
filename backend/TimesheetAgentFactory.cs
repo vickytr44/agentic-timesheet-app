@@ -15,15 +15,19 @@ public class TimesheetAgentFactory(
 {
     public AIAgent CreateTimesheetAgent()
     {
+        var currentDateStr = DateTime.Today.ToString("yyyy-MM-dd");
+        var currentDayOfWeekStr = DateTime.Today.DayOfWeek.ToString();
+
         // 1. Create the Timesheet Agent (Specialist)
         var timesheetTools = TimesheetAgentTools.CreateTools(timesheetService);
         var coreTimesheetAgent = new ChatClientAgent(
             chatClient: chatClient,
             name: "timesheet_agent",
-            instructions: "You are an expert Timesheet Assistant. Your job is to help users manage, log, review, and submit their timesheets. " +
-                         "Use your tools to query or mutate timesheet records. Always be friendly, concise, and helpful. " +
-                         "If the user asks questions about company policies, employee benefits, remote work, leaves, or HR handbooks, " +
-                         "you must hand off back to the triage_agent.",
+            instructions: $"Today's date is {currentDateStr} ({currentDayOfWeekStr}). " +
+                          "You are an expert Timesheet Assistant. Your job is to help users manage, log, review, and submit their timesheets. " +
+                          "Use your tools to query or mutate timesheet records. Always be friendly, concise, and helpful. " +
+                          "If the user asks questions about company policies, employee benefits, remote work, leaves, or HR handbooks, " +
+                          "you must hand off back to the triage_agent.",
             description: "Timesheet AI Assistant",
             tools: timesheetTools
         );
@@ -39,7 +43,8 @@ public class TimesheetAgentFactory(
         var handbookAgent = new ChatClientAgent(
             chatClient: chatClient,
             name: "handbook_agent",
-            instructions: "You are an expert Employee Handbook and HR Policy Assistant. " +
+            instructions: $"Today's date is {currentDateStr} ({currentDayOfWeekStr}). " +
+                          "You are an expert Employee Handbook and HR Policy Assistant. " +
                           "Your job is to search the employee handbook to answer the user's policy questions. " +
                           "Always use your search tool to look up policies and answer clearly based ONLY on the retrieved facts. " +
                           "If the user asks to log hours, modify, submit, or unlock timesheets, " +
@@ -58,8 +63,14 @@ public class TimesheetAgentFactory(
         var leaveAgent = new ChatClientAgent(
             chatClient: chatClient,
             name: "leave_agent",
-            instructions: "You are an expert Leave and Time Off Assistant. Your job is to help users check their leave balances and apply for leaves. " +
+            instructions: $"Today's date is {currentDateStr} ({currentDayOfWeekStr}). " +
+                          "You are an expert Leave and Time Off Assistant. Your job is to help users check their leave balances and apply for leaves. " +
                           "Always refer to the user's available leave balances when requested. " +
+                          "When the user requests N days of leave starting on a specific date, you MUST calculate the end date such that the number of weekdays (excluding Saturdays and Sundays) from the start date to the end date (inclusive) is exactly N. " +
+                          "The start date itself counts as day 1. " +
+                          "For example: " +
+                          "- A 3-day leave starting on a Monday (like 2026-06-22) covers Monday, Tuesday, Wednesday, so the end date MUST be Wednesday 2026-06-24 (not June 25). " +
+                          "- A 3-day leave starting on a Friday (like 2026-06-19) covers Friday, Monday, Tuesday, so the end date MUST be Tuesday 2026-06-23. " +
                           "If the request is unrelated to leaves (e.g. they want to log hours, modify timesheets, search general handbook policies), " +
                           "you must hand off back to the triage_agent.",
             description: "Leave Management Assistant",
@@ -70,7 +81,8 @@ public class TimesheetAgentFactory(
         var triageAgent = new ChatClientAgent(
             chatClient: chatClient,
             name: "triage_agent",
-            instructions: "You are the primary assistant coordinator. Your job is to route the user's request to the correct specialist.\n" +
+            instructions: $"Today's date is {currentDateStr} ({currentDayOfWeekStr}). " +
+                          "You are the primary assistant coordinator. Your job is to route the user's request to the correct specialist.\n" +
                           "- If the user wants to apply for leave, submit a leave request, or check their personal leave balances/history, you MUST hand off to the leave_agent.\n" +
                           "- If the user wants to log hours, modify, submit, view, or unlock their timesheet, you MUST hand off to the timesheet_agent.\n" +
                           "- If the user asks general informational questions about company policies, employee benefits, remote work guidelines, leave rules/stipends, or HR handbooks, hand off to the handbook_agent.\n" +
