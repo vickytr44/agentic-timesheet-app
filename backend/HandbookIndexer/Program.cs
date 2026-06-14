@@ -19,18 +19,51 @@ var configuration = host.Services.GetRequiredService<IConfiguration>();
 logger.LogInformation("=== Handbook Indexer ===");
 
 // ---------------------------------------------------------------------------
-// Resolve the shared Data directory
+// Resolve the shared Data directory (search for Data/Handbook.pdf using relative paths)
 // ---------------------------------------------------------------------------
-var dataDir = ResolveDataDirectory(args.ElementAtOrDefault(0), logger);
-var pdfPath = Path.Combine(dataDir, "Handbook.pdf");
-var dbPath = Path.Combine(dataDir, "handbook.db");
-
-if (!File.Exists(pdfPath))
+string? FindDataDir()
 {
-    logger.LogError("Handbook PDF not found at: {Path}", pdfPath);
+    // Allow overriding via first argument
+    if (args.Length > 0)
+    {
+        var argDir = args[0];
+        var pdf = Path.Combine(argDir, "Handbook.pdf");
+        if (File.Exists(pdf))
+            return argDir;
+    }
+
+    // Search upwards from current directory and the base directory for the Data folder
+    var roots = new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory };
+    foreach (var root in roots)
+    {
+        var dir = root;
+        for (int i = 0; i < 8; i++)
+        {
+            var dataCandidate = Path.Combine(dir, "Data");
+            var pdfCandidate = Path.Combine(dataCandidate, "Handbook.pdf");
+            if (File.Exists(pdfCandidate))
+            {
+                return dataCandidate;
+            }
+
+            // move one level up
+            dir = Path.GetFullPath(Path.Combine(dir, ".."));
+        }
+    }
+
+    return null;
+}
+
+var dataDir = FindDataDir();
+if (dataDir is null)
+{
+    logger.LogError("Handbook PDF not found (searched relative paths).");
     logger.LogError("Pass the data directory as the first argument, e.g.: dotnet run -- /path/to/Data");
     return 1;
 }
+
+var pdfPath = Path.Combine(dataDir, "Handbook.pdf");
+var dbPath = Path.Combine(dataDir, "handbook.db");
 
 // ---------------------------------------------------------------------------
 // Create Ollama embedding generator (OpenAI-compatible endpoint)
@@ -70,34 +103,3 @@ await indexerService.IndexAsync(pdfPath);
 
 logger.LogInformation("Done. You can now start the backend and query the handbook.");
 return 0;
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-static string ResolveDataDirectory(string? argPath, ILogger logger)
-{
-    if (argPath is not null && Directory.Exists(argPath))
-    {
-        logger.LogInformation("Using data directory from argument: {Path}", argPath);
-        return argPath;
-    }
-
-    // Search common locations relative to where the tool is run from
-    var candidates = new[]
-    {
-        Path.Combine(Directory.GetCurrentDirectory(), "Data"),           // run from backend/
-        Path.Combine(Directory.GetCurrentDirectory(), "..", "Data"),     // run from backend/HandbookIndexer/
-        Path.Combine(AppContext.BaseDirectory, "Data"),                  // run from publish output
-    };
-
-    var found = candidates.FirstOrDefault(Directory.Exists);
-    if (found is not null)
-    {
-        logger.LogInformation("Data directory resolved to: {Path}", Path.GetFullPath(found));
-        return found;
-    }
-
-    throw new DirectoryNotFoundException(
-        "Could not locate the Data directory. " +
-        "Pass the path as the first argument: dotnet run -- /absolute/path/to/Data");
-}

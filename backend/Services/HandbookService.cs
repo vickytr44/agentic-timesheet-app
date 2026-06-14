@@ -4,6 +4,7 @@ using Microsoft.SemanticKernel.Connectors.SqliteVec;
 using OpenAI;
 using System.ClientModel;
 using System.ComponentModel;
+using HandbookCommon.Models;
 
 namespace backend.Services;
 
