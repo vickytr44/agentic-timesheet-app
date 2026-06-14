@@ -3,6 +3,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.Extensions.AI;
 using backend;
+using backend.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -134,6 +135,6 @@ app.Run("http://localhost:5116");
 
 // Input model for REST API
 public record TimesheetEntryInput(string Date, string Project, double Hours, string Description);
-public record LeaveRequestInput(string StartDate, string EndDate, string LeaveType, string Reason);
+public record LeaveRequestInput(DateOnly StartDate, DateOnly EndDate, LeaveTypeEnum LeaveType, string Reason);
 
 public partial class Program { }

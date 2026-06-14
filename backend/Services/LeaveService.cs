@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using backend.Models;
 using System.ComponentModel;
 
@@ -5,8 +8,8 @@ namespace backend.Services
 {
     public class LeaveService
     {
-        private readonly List<LeaveRequest> _requests = new();
-        private readonly Dictionary<string, double> _balances = new();
+        private readonly List<LeaveRequest> _requests = [];
+        private readonly Dictionary<LeaveTypeEnum, double> _balances = [];
         private readonly TimesheetService _timesheetService;
 
         public LeaveService(TimesheetService timesheetService)
@@ -14,32 +17,34 @@ namespace backend.Services
             _timesheetService = timesheetService;
 
             // Seed leave balances
-            _balances["Vacation"] = 20.0;
-            _balances["Sick"] = 10.0;
-            _balances["Parental"] = 60.0; // 12 weeks = 60 working days
+            _balances[LeaveTypeEnum.Vacation] = 20.0;
+            _balances[LeaveTypeEnum.Sick] = 10.0;
+            _balances[LeaveTypeEnum.Parental] = 60.0; // 12 weeks = 60 working days
 
-            // Seed historical request (e.g. 2 days vacation last month)
+            // Seed historical request (e.g. 2 days parental leave last month)
             var prevMonth = DateTime.Today.AddMonths(-1);
-            var start = prevMonth.ToString("yyyy-MM-dd");
-            var end = prevMonth.AddDays(1).ToString("yyyy-MM-dd");
+            var start = DateOnly.FromDateTime(prevMonth);
+            var end = DateOnly.FromDateTime(prevMonth.AddDays(1));
 
-            _requests.Add(new LeaveRequest
+            var historicalRequest = new LeaveRequest
             {
                 Id = Guid.NewGuid(),
                 StartDate = start,
                 EndDate = end,
-                LeaveType = "Vacation",
+                LeaveType = LeaveTypeEnum.Parental,
                 Reason = "Family trip",
-                Status = "Approved",
+                Status = LeaveStatusEnum.Approved,
                 Days = 2.0
-            });
-            _balances["Vacation"] -= 2.0;
+            };
+
+            _requests.Add(historicalRequest);
+            _balances[LeaveTypeEnum.Parental] -= 2.0;
         }
 
         [Description("Gets the user's available leave balances for each leave type (Vacation, Sick, Parental).")]
-        public Dictionary<string, double> GetLeaveBalances()
+        public Dictionary<LeaveTypeEnum, double> GetLeaveBalances()
         {
-            return new Dictionary<string, double>(_balances);
+            return new Dictionary<LeaveTypeEnum, double>(_balances);
         }
 
         [Description("Gets the list of all applied leave requests.")]
@@ -60,62 +65,55 @@ namespace backend.Services
 
         [Description("Applies for a new leave request. Deducts balances and automatically populates the user's timesheet for those dates.")]
         public LeaveRequest ApplyLeave(
-            [Description("Start date of leave in YYYY-MM-DD format.")] string startDate,
-            [Description("End date of leave in YYYY-MM-DD format.")] string endDate,
-            [Description("Leave type (e.g., Vacation, Sick, Parental).")] string leaveType,
+            [Description("Start date of leave in YYYY-MM-DD format.")] DateOnly startDate,
+            [Description("End date of leave in YYYY-MM-DD format.")] DateOnly endDate,
+            [Description("Leave type (e.g., Vacation, Sick, Parental).")] LeaveTypeEnum leaveType,
             [Description("Reason or description for the leave.")] string reason)
         {
-            if (!DateTime.TryParse(startDate, out var start) || !DateTime.TryParse(endDate, out var end))
-            {
-                throw new ArgumentException("Invalid date format. Please use YYYY-MM-DD.");
-            }
-
-            if (end < start)
+            // Validate dates (DateOnly parameters)
+            if (endDate < startDate)
             {
                 throw new ArgumentException("End date cannot be before start date.");
             }
 
             // Calculate working days (weekdays)
-            double days = 0;
-            var weekdays = new List<DateTime>();
-            for (var date = start; date <= end; date = date.AddDays(1))
+            var weekdays = new List<DateOnly>();
+            for (var date = startDate; date <= endDate; date = date.AddDays(1))
             {
                 if (date.DayOfWeek != DayOfWeek.Saturday && date.DayOfWeek != DayOfWeek.Sunday)
                 {
-                    days += 1.0;
                     weekdays.Add(date);
                 }
             }
+
+            var days = weekdays.Count;
 
             if (days == 0)
             {
                 throw new ArgumentException("Leave duration must contain at least one weekday (Monday to Friday).");
             }
 
-            // Normalize leave type name to title case
-            string normalizedType = char.ToUpper(leaveType[0]) + leaveType.Substring(1).ToLower();
-
-            if (!_balances.TryGetValue(normalizedType, out var balance))
+            if (!_balances.TryGetValue(leaveType, out var balance))
             {
                 throw new ArgumentException($"Unknown leave type: {leaveType}. Available types are: Vacation, Sick, Parental.");
             }
 
             if (balance < days)
             {
-                throw new InvalidOperationException($"Insufficient leave balance. Remaining {normalizedType} balance: {balance} days. Requested: {days} days.");
+                throw new InvalidOperationException($"Insufficient leave balance. Remaining {leaveType} balance: {balance} days. Requested: {days} days.");
             }
 
             // Deduct balance
-            _balances[normalizedType] = balance - days;
+            _balances[leaveType] = balance - days;
 
             var request = new LeaveRequest
             {
                 Id = Guid.NewGuid(),
                 StartDate = startDate,
                 EndDate = endDate,
-                LeaveType = normalizedType,
+                LeaveType = leaveType,
                 Reason = reason,
-                Status = "Approved", // Auto-approved for this copilot demonstration
+                Status = LeaveStatusEnum.Approved, // Auto-approved for this copilot demonstration
                 Days = days
             };
 
@@ -130,7 +128,7 @@ namespace backend.Services
                         date: date.ToString("yyyy-MM-dd"),
                         project: "Leave",
                         hours: 8.0,
-                        description: $"{normalizedType} Leave: {reason}"
+                        description: $"{leaveType} Leave: {reason}"
                     );
                 }
                 catch (Exception ex)

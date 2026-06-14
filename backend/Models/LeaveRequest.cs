@@ -1,28 +1,41 @@
 using System.Text.Json.Serialization;
 
-namespace backend.Models
+namespace backend.Models;
+
+public class LeaveRequest
 {
-    public class LeaveRequest
-    {
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; } = Guid.NewGuid();
+    [JsonPropertyName("id")]
+    public Guid Id { get; set; } = Guid.NewGuid();
 
-        [JsonPropertyName("startDate")]
-        public string StartDate { get; set; } = string.Empty; // Format YYYY-MM-DD
+    [JsonPropertyName("startDate")]
+    public DateOnly StartDate { get; set; }
 
-        [JsonPropertyName("endDate")]
-        public string EndDate { get; set; } = string.Empty; // Format YYYY-MM-DD
+    [JsonPropertyName("endDate")]
+    public DateOnly EndDate { get; set; }
 
-        [JsonPropertyName("leaveType")]
-        public string LeaveType { get; set; } = string.Empty; // e.g., Vacation, Sick, Parental
+    [JsonPropertyName("leaveType")]
+    public LeaveTypeEnum LeaveType { get; set; }
 
-        [JsonPropertyName("reason")]
-        public string Reason { get; set; } = string.Empty;
+    [JsonPropertyName("reason")]
+    public string? Reason { get; set; } 
 
-        [JsonPropertyName("status")]
-        public string Status { get; set; } = "Approved"; // We'll auto-approve for simplicity, or "Pending"
+    [JsonPropertyName("status")]
+    public LeaveStatusEnum Status { get; set; } = LeaveStatusEnum.Pending;
 
-        [JsonPropertyName("days")]
-        public double Days { get; set; }
-    }
+    [JsonPropertyName("days")]
+    public double Days { get; set; }
+}
+
+public enum LeaveTypeEnum
+{
+    Vacation,
+    Sick,
+    Parental
+}
+
+public enum LeaveStatusEnum
+{
+    Pending,
+    Approved,
+    Rejected
 }
