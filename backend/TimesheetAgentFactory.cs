@@ -83,9 +83,6 @@ public class TimesheetAgentFactory(
             .WithHandoff(triageAgent, timesheetAgent, "Use this tool to transition to the Timesheet Agent when the user wants to perform actions on their timesheet (e.g. log hours, submit, unlock, view).")
             .WithHandoff(triageAgent, leaveAgent, "Use this tool ONLY when the user wants to take action on leaves (e.g., apply for leave, submit a leave request, check personal leave balances, view leave requests).")
             .WithHandoff(triageAgent, handbookAgent, "Use this tool ONLY when the user asks general questions, read-only policy lookups, or informational questions about the employee handbook, HR rules, remote work guidelines, or leave policies.")
-            .WithHandoff(timesheetAgent, triageAgent, "Use this tool ONLY if the user's request is unrelated to timesheets (e.g. they ask about company policies, leaves, benefits, or employee handbook questions).")
-            .WithHandoff(handbookAgent, triageAgent, "Use this tool ONLY if the user's request is unrelated to employee handbook/HR policies (e.g. they want to log hours, modify timesheets, submit, or unlock timesheets).")
-            .WithHandoff(leaveAgent, triageAgent, "Use this tool ONLY if the user's request is unrelated to leaves (e.g. they want to log hours, modify timesheets, submit, or unlock timesheets, or search handbook policies).")
             .Build();
 
         // 6. Return the workflow wrapped as a single AIAgent
