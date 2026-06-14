@@ -26,6 +26,7 @@ public class LeaveRequest
     public double Days { get; set; }
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter<LeaveTypeEnum>))]
 public enum LeaveTypeEnum
 {
     Vacation,
@@ -33,6 +34,7 @@ public enum LeaveTypeEnum
     Parental
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter<LeaveStatusEnum>))]
 public enum LeaveStatusEnum
 {
     Pending,

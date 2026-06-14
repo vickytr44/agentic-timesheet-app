@@ -466,7 +466,7 @@ export default function Dashboard() {
                             </td>
                             <td style={{ fontWeight: "500", color: "var(--text-muted)" }}>{req.startDate}</td>
                             <td style={{ fontWeight: "500", color: "var(--text-muted)" }}>{req.endDate}</td>
-                            <td style={{ textAlign: "right", fontWeight: "700", color: "rgb(var(--color-secondary))" }}>{req.days} days</td>
+                            <td style={{ textAlign: "right", fontWeight: "700", color: "rgb(var(--color-secondary))" }}>{req.days} {req.days === 1 ? "day" : "days"}</td>
                             <td style={{ color: "#d1d5db" }}>{req.reason}</td>
                             <td style={{ textAlign: "center" }}>
                               <span className={req.status === "Approved" ? "badge-approved" : "badge-pending"}>
