@@ -40,7 +40,7 @@ echo [INFO] Starting Backend in a new window...
 start "Timesheet Copilot - Backend (Port 5116)" cmd /k "cd backend && echo Starting ASP.NET Core backend... && dotnet run"
 
 echo [INFO] Starting Frontend in a new window...
-start "Timesheet Copilot - Frontend (Port 3000)" cmd /k "cd frontend && echo Starting Next.js frontend... && if not exist node_modules (echo Installing dependencies... && npm.cmd install) && npm.cmd run dev"
+start "Timesheet Copilot - Frontend (Port 3000)" cmd /k "cd frontend && echo Starting Next.js frontend... && (if not exist node_modules (echo Installing dependencies... && call npm install)) & call npm run dev"
 
 echo.
 echo [SUCCESS] Both services have been launched!
