@@ -84,7 +84,7 @@ export default function Dashboard() {
   // Register the frontend tool to open the Leave form modal as a Human-in-the-Loop interaction
   useHumanInTheLoop({
     name: "showLeaveForm",
-    description: "Opens the leave application form. Use this when the user requests to apply for leave or take time off.",
+    description: "Call the tool when the user wants to apply for leave.",
     parameters: z.object({
       startDate: z.string().optional().describe("The start date of the leave (YYYY-MM-DD), if known."),
       endDate: z.string().optional().describe("The end date of the leave (YYYY-MM-DD), if known."),
@@ -102,7 +102,6 @@ export default function Dashboard() {
             respond("Cancelled");
           }}
           onSuccess={() => {
-            refreshData();
             respond("Success");
           }}
           initialData={{
@@ -508,7 +507,10 @@ export default function Dashboard() {
       <LeaveModal
         isOpen={isLeaveModalOpen}
         onClose={() => setIsLeaveModalOpen(false)}
-        onSuccess={refreshData}
+        onSuccess={() => {
+          refreshData();
+          setIsLeaveModalOpen(false);
+        }}
         initialData={prefilledLeaveData}
       />
     </div>

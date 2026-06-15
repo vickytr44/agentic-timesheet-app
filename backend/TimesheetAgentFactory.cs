@@ -57,6 +57,7 @@ public class TimesheetAgentFactory(
         var leaveTools = new List<AITool>
         {
             AIFunctionFactory.Create(leaveService.GetLeaveBalances),
+            AIFunctionFactory.Create(leaveService.GetLeaveRequests),
             AIFunctionFactory.Create(leaveService.ApplyLeave)
         };
         var leaveAgent = new ChatClientAgent(
@@ -75,13 +76,17 @@ public class TimesheetAgentFactory(
             description: "Leave Management Assistant",
             tools: leaveTools
         );
-
+ 
         // 4. Create the Triage Agent (Coordinator)
         var triageAgent = new ChatClientAgent(
             chatClient: chatClient,
             name: "triage_agent",
             instructions: $"Today's date is {currentDateStr} ({currentDayOfWeekStr}). " +
-                          "You are the primary assistant coordinator. Your job is to route the user's request to the correct specialist.\n" +
+                          "You are the primary assistant coordinator. Your job is to route the user's request to the correct specialist.\n\n" +
+                          "CRITICAL: Before routing or calling any handoff tools, check the conversation history:\n" +
+                          "- If the history shows that the frontend tool `showLeaveForm` has already been called and completed (returned a result like 'Success' or 'Cancelled') for the current request, DO NOT hand off to the leave_agent. Instead, directly respond to the user: if 'Success', say that their leave request has been submitted successfully; if 'Cancelled', say that the request was cancelled.\n" +
+                          "- If a handoff tool was already called and executed for the current request, do not call it again unless a new user request has been made.\n\n" +
+                          "Routing rules:\n" +
                           "- If the user wants to apply for leave, submit a leave request, or check their personal leave balances/history, you MUST hand off to the leave_agent.\n" +
                           "- If the user wants to log hours, modify, submit, view, or unlock their timesheet, you MUST hand off to the timesheet_agent.\n" +
                           "- If the user asks general informational questions about company policies, employee benefits, remote work guidelines, leave rules/stipends, or HR handbooks, hand off to the handbook_agent.\n" +

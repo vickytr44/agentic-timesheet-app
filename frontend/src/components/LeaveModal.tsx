@@ -74,7 +74,6 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, initialData }: 
       }
 
       onSuccess();
-      onClose();
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
     } finally {
