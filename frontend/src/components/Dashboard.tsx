@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useCoAgent, useCopilotChat, useFrontendTool } from "@copilotkit/react-core";
+import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { z } from "zod";
 import { Plus, CheckCircle, RefreshCw, RotateCcw, Calendar, Coffee } from "lucide-react";
 import SummaryCards from "./SummaryCards";
 import TimesheetTable from "./TimesheetTable";
@@ -79,36 +81,38 @@ export default function Dashboard() {
     }
   };
 
-  // Register the frontend tool to open the Leave form modal
-  useFrontendTool({
+  // Register the frontend tool to open the Leave form modal as a Human-in-the-Loop interaction
+  useHumanInTheLoop({
     name: "showLeaveForm",
     description: "Opens the leave application form. Use this when the user requests to apply for leave or take time off.",
-    parameters: [
-      {
-        name: "startDate",
-        description: "The start date of the leave (YYYY-MM-DD), if known.",
-        required: false,
-      },
-      {
-        name: "endDate",
-        description: "The end date of the leave (YYYY-MM-DD), if known.",
-        required: false,
-      },
-      {
-        name: "leaveType",
-        description: "The type of leave (e.g. Vacation, Sick, Parental), if known.",
-        required: false,
-      },
-      {
-        name: "reason",
-        description: "The reason or notes for the leave, if known.",
-        required: false,
-      },
-    ],
-    handler({ startDate, endDate, leaveType, reason }) {
-      setPrefilledLeaveData({ startDate, endDate, leaveType, reason });
-      setIsLeaveModalOpen(true);
-      setActiveTab("Leaves");
+    parameters: z.object({
+      startDate: z.string().optional().describe("The start date of the leave (YYYY-MM-DD), if known."),
+      endDate: z.string().optional().describe("The end date of the leave (YYYY-MM-DD), if known."),
+      leaveType: z.string().optional().describe("The type of leave (e.g. Vacation, Sick, Parental), if known."),
+      reason: z.string().optional().describe("The reason or notes for the leave, if known."),
+    }),
+    render: ({ status, args, respond }) => {
+      if (status !== "executing" || !respond) {
+        return null;
+      }
+      return (
+        <LeaveModal
+          isOpen={true}
+          onClose={() => {
+            respond("Cancelled");
+          }}
+          onSuccess={() => {
+            refreshData();
+            respond("Success");
+          }}
+          initialData={{
+            startDate: args.startDate,
+            endDate: args.endDate,
+            leaveType: args.leaveType,
+            reason: args.reason,
+          }}
+        />
+      );
     },
   });
 

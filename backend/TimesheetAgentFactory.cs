@@ -57,7 +57,6 @@ public class TimesheetAgentFactory(
         var leaveTools = new List<AITool>
         {
             AIFunctionFactory.Create(leaveService.GetLeaveBalances),
-            AIFunctionFactory.Create(leaveService.GetLeaveRequests),
             AIFunctionFactory.Create(leaveService.ApplyLeave)
         };
         var leaveAgent = new ChatClientAgent(
