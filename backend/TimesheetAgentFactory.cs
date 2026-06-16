@@ -20,17 +20,24 @@ public class TimesheetAgentFactory(
 
         // 1. Create the Timesheet Agent (Specialist)
         var timesheetTools = TimesheetAgentTools.CreateTools(timesheetService);
+
         var coreTimesheetAgent = new ChatClientAgent(
             chatClient: chatClient,
-            name: "timesheet_agent",
-            instructions: $"Today's date is {currentDateStr} ({currentDayOfWeekStr}). " +
+            options: new ChatClientAgentOptions
+            {
+                Name = "timesheet_agent",
+                Description = "Timesheet AI Assistant",
+                ChatOptions = new()
+                {
+                    Instructions = $"Today's date is {currentDateStr} ({currentDayOfWeekStr}). " +
                           "You are an expert Timesheet Assistant. Your job is to help users manage, log, review, and submit their timesheets. " +
                           "Use your tools to query or mutate timesheet records. Always be friendly, concise, and helpful. " +
                           "If the user asks questions about company policies, employee benefits, remote work, leaves, or HR handbooks, " +
                           "you must hand off back to the triage_agent.",
-            description: "Timesheet AI Assistant",
-            tools: timesheetTools
-        );
+                    Tools = timesheetTools
+                }
+            }
+            );
 
         // Wrap the Timesheet Agent with the state synchronization logic
         var timesheetAgent = new TimesheetSharedStateAgent(coreTimesheetAgent, timesheetService, jsonSerializerOptions);
@@ -68,10 +75,14 @@ public class TimesheetAgentFactory(
         );
  
         // 4. Create the Triage Agent (Coordinator)
+
         var triageAgent = new ChatClientAgent(
             chatClient: chatClient,
-            name: "triage_agent",
-            instructions: $"Today's date is {currentDateStr} ({currentDayOfWeekStr}). " +
+            options: new ChatClientAgentOptions
+            {
+                Name = "triage_agent",
+                Description = "Routes users to the appropriate agent",
+                ChatOptions = new() { Instructions = $"Today's date is {currentDateStr} ({currentDayOfWeekStr}). " +
                           "You are the primary assistant coordinator. Your job is to route the user's request to the correct specialist.\n\n" +
                           "CRITICAL: Before routing or calling any handoff tools, check the conversation history:\n" +
                           "- If the history shows that the frontend tool `showLeaveForm` has already been called and completed (returned a result like 'Success' or 'Cancelled') for the current request, DO NOT hand off to the leave_agent. Instead, directly respond to the user: if 'Success', say that their leave request has been submitted successfully; if 'Cancelled', say that the request was cancelled.\n" +
@@ -80,9 +91,13 @@ public class TimesheetAgentFactory(
                           "- If the user wants to apply for leave, submit a leave request, or check their personal leave balances/history, you MUST hand off to the leave_agent.\n" +
                           "- If the user wants to log hours, modify, submit, view, or unlock their timesheet, you MUST hand off to the timesheet_agent.\n" +
                           "- If the user asks general informational questions about company policies, employee benefits, remote work guidelines, leave rules/stipends, or HR handbooks, hand off to the handbook_agent.\n" +
-                          "- If the request is generic (like hello), greet the user, explain what you can help with (timesheets, leaves, or handbook policies), and ask how you can assist.",
-            description: "Routes users to the appropriate agent"
-        );
+                          "- If the request is generic (like hello), greet the user, explain what you can help with (timesheets, leaves, or handbook policies), and ask how you can assist."
+                },
+                AIContextProviders = [
+                    new ToolBridgeContextProvider()
+                ],
+            }
+            );
 
         // 5. Build the workflow using the Handoff pattern with explicit reasons (descriptions for the LLM)
         var workflow = AgentWorkflowBuilder.CreateHandoffBuilderWith(triageAgent)
@@ -90,7 +105,9 @@ public class TimesheetAgentFactory(
             .WithHandoffs([timesheetAgent, leaveAgent, handbookAgent], triageAgent)
             .Build();
 
-        // 6. Return the workflow wrapped as a single AIAgent
-        return workflow.AsAIAgent();
+        // 6. Return the workflow wrapped with the FrontendToolBridge
+        //    so that frontend tools from the AG-UI adapter are captured
+        //    BEFORE the handoff workflow replaces ChatOptions.Tools.
+        return new FrontendToolBridgeAgent(workflow.AsAIAgent());
     }
 }
