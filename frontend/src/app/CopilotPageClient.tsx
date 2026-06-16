@@ -30,6 +30,7 @@ export default function CopilotPageClient() {
           document.documentElement.style.setProperty("--color-primary", themeColor);
         }
       }
+      //return "Success";
     },
   });
 

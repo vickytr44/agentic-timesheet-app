@@ -36,7 +36,7 @@ public static class TimesheetAgentTools
         [
             AIFunctionFactory.Create(service.GetLeaveBalances),
             AIFunctionFactory.Create(service.GetLeaveRequests),
-            AIFunctionFactory.Create(service.ApplyLeave)
+            //AIFunctionFactory.Create(service.ApplyLeave)
         ];
     }
 

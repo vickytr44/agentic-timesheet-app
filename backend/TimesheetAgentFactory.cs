@@ -39,8 +39,10 @@ public class TimesheetAgentFactory(
             }
             );
 
+        var middlewareEnabledTimeSheetAgent = coreTimesheetAgent.AsBuilder().Use(CustomFunctionCallingMiddleware).Build();
+
         // Wrap the Timesheet Agent with the state synchronization logic
-        var timesheetAgent = new TimesheetSharedStateAgent(coreTimesheetAgent, timesheetService, jsonSerializerOptions);
+        var timesheetAgent = new TimesheetSharedStateAgent(middlewareEnabledTimeSheetAgent, timesheetService, jsonSerializerOptions);
 
         // 2. Create the Handbook Agent (Specialist)
         var handbookAgent = new ChatClientAgent(
@@ -55,6 +57,8 @@ public class TimesheetAgentFactory(
             description: "Employee Handbook Policy Assistant",
             tools: TimesheetAgentTools.CreateHandbookTools(handbookService)
         );
+
+        var middlewareEnabledHandbookAgent = handbookAgent.AsBuilder().Use(CustomFunctionCallingMiddleware).Build();
 
         // 3. Create the Leave Agent (Specialist)
         var leaveAgent = new ChatClientAgent(
@@ -73,7 +77,9 @@ public class TimesheetAgentFactory(
             description: "Leave Management Assistant",
             tools: TimesheetAgentTools.CreateLeaveTools(leaveService)
         );
- 
+
+        var middlewareEnabledLeaveAgent = leaveAgent.AsBuilder().Use(CustomFunctionCallingMiddleware).Build();
+
         // 4. Create the Triage Agent (Coordinator)
 
         var triageAgent = new ChatClientAgent(
@@ -82,7 +88,8 @@ public class TimesheetAgentFactory(
             {
                 Name = "triage_agent",
                 Description = "Routes users to the appropriate agent",
-                ChatOptions = new() { Instructions = $"Today's date is {currentDateStr} ({currentDayOfWeekStr}). " +
+                ChatOptions = new() {
+                    Instructions = $"Today's date is {currentDateStr} ({currentDayOfWeekStr}). " +
                           "You are the primary assistant coordinator. Your job is to route the user's request to the correct specialist.\n\n" +
                           "CRITICAL: Before routing or calling any handoff tools, check the conversation history:\n" +
                           "- If the history shows that the frontend tool `showLeaveForm` has already been called and completed (returned a result like 'Success' or 'Cancelled') for the current request, DO NOT hand off to the leave_agent. Instead, directly respond to the user: if 'Success', say that their leave request has been submitted successfully; if 'Cancelled', say that the request was cancelled.\n" +
@@ -99,15 +106,30 @@ public class TimesheetAgentFactory(
             }
             );
 
+        var middlewareEnabledTriageAgent = triageAgent.AsBuilder().Use(CustomFunctionCallingMiddleware).Build();
+
         // 5. Build the workflow using the Handoff pattern with explicit reasons (descriptions for the LLM)
-        var workflow = AgentWorkflowBuilder.CreateHandoffBuilderWith(triageAgent)
-            .WithHandoffs(triageAgent, [timesheetAgent, leaveAgent, handbookAgent])
-            .WithHandoffs([timesheetAgent, leaveAgent, handbookAgent], triageAgent)
+        var workflow = AgentWorkflowBuilder.CreateHandoffBuilderWith(middlewareEnabledTriageAgent)
+            .WithHandoffs(middlewareEnabledTriageAgent, [middlewareEnabledTimeSheetAgent, middlewareEnabledLeaveAgent, middlewareEnabledHandbookAgent])
+            .WithHandoffs([middlewareEnabledTimeSheetAgent, middlewareEnabledLeaveAgent, middlewareEnabledHandbookAgent], middlewareEnabledTriageAgent)
             .Build();
 
         // 6. Return the workflow wrapped with the FrontendToolBridge
         //    so that frontend tools from the AG-UI adapter are captured
         //    BEFORE the handoff workflow replaces ChatOptions.Tools.
         return new FrontendToolBridgeAgent(workflow.AsAIAgent());
+    }
+
+    static async ValueTask<object?> CustomFunctionCallingMiddleware(
+    AIAgent agent,
+    FunctionInvocationContext context,
+    Func<FunctionInvocationContext, CancellationToken, ValueTask<object?>> next,
+    CancellationToken cancellationToken)
+    {
+        Console.WriteLine($"Function Name: {context!.Function.Name}: evoked by agent name: {agent.Name}");
+        var result = await next(context, cancellationToken);
+        Console.WriteLine($"Function Call Result: {result}");
+
+        return result;
     }
 }
