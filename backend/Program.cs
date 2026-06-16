@@ -31,8 +31,8 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddAGUI();
 
 // 3. Configure IChatClient using Groq / OpenAI
-var apiKey = builder.Configuration["OpenAI:ApiKey"] ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-var modelId = builder.Configuration["OpenAI:ModelId"] ?? "llama-3.3-70b-versatile";
+var apiKey = builder.Configuration["OpenAI:ApiKey"] ?? throw new InvalidOperationException("OpenAI API key is not configured.");
+var modelId = builder.Configuration["OpenAI:ModelId"] ?? throw new InvalidOperationException("OpenAI ModelId is not configured.");
 var endpoint = builder.Configuration["OpenAI:Endpoint"] ?? "https://api.groq.com/openai/v1/";
 
 IChatClient chatClient;
