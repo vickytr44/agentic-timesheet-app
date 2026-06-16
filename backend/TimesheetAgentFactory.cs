@@ -36,10 +36,6 @@ public class TimesheetAgentFactory(
         var timesheetAgent = new TimesheetSharedStateAgent(coreTimesheetAgent, timesheetService, jsonSerializerOptions);
 
         // 2. Create the Handbook Agent (Specialist)
-        var handbookTools = new List<AITool>
-        {
-            AIFunctionFactory.Create(handbookService.SearchHandbookAsync)
-        };
         var handbookAgent = new ChatClientAgent(
             chatClient: chatClient,
             name: "handbook_agent",
@@ -50,16 +46,10 @@ public class TimesheetAgentFactory(
                           "If the user asks to log hours, modify, submit, or unlock timesheets, " +
                           "you must hand off back to the triage_agent.",
             description: "Employee Handbook Policy Assistant",
-            tools: handbookTools
+            tools: TimesheetAgentTools.CreateHandbookTools(handbookService)
         );
 
         // 3. Create the Leave Agent (Specialist)
-        var leaveTools = new List<AITool>
-        {
-            AIFunctionFactory.Create(leaveService.GetLeaveBalances),
-            AIFunctionFactory.Create(leaveService.GetLeaveRequests),
-            AIFunctionFactory.Create(leaveService.ApplyLeave)
-        };
         var leaveAgent = new ChatClientAgent(
             chatClient: chatClient,
             name: "leave_agent",
@@ -74,7 +64,7 @@ public class TimesheetAgentFactory(
                           "If the request is unrelated to leaves (e.g. they want to log hours, modify timesheets, search general handbook policies), " +
                           "you must hand off back to the triage_agent.",
             description: "Leave Management Assistant",
-            tools: leaveTools
+            tools: TimesheetAgentTools.CreateLeaveTools(leaveService)
         );
  
         // 4. Create the Triage Agent (Coordinator)

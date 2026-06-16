@@ -26,4 +26,28 @@ public static class TimesheetAgentTools
             AIFunctionFactory.Create(service.GetSummary)
         ];
     }
+
+    /// <summary>
+    /// Creates the full list of AI tools bound to the given LeaveService instance.
+    /// </summary>
+    public static IList<AITool> CreateLeaveTools(LeaveService service)
+    {
+        return
+        [
+            AIFunctionFactory.Create(service.GetLeaveBalances),
+            AIFunctionFactory.Create(service.GetLeaveRequests),
+            AIFunctionFactory.Create(service.ApplyLeave)
+        ];
+    }
+
+    /// <summary>
+    /// Creates the full list of AI tools bound to the given HandbookService instance.
+    /// </summary>
+    public static IList<AITool> CreateHandbookTools(HandbookService service)
+    {
+        return
+        [
+            AIFunctionFactory.Create(service.SearchHandbookAsync)
+        ];
+    }
 }
