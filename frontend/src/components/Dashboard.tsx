@@ -12,6 +12,7 @@ import LeaveBalancesGrid from "./LeaveBalancesGrid";
 import LeaveRequestsTable from "./LeaveRequestsTable";
 import SidebarInstructions from "./SidebarInstructions";
 import LeaveModal from "./LeaveModal";
+import TimesheetModal from "./TimesheetModal";
 import {
   fetchTimesheetEntries,
   fetchTimesheetSummary,
@@ -105,6 +106,41 @@ export default function Dashboard() {
             endDate: args.endDate,
             leaveType: args.leaveType,
             reason: args.reason,
+          }}
+        />
+      );
+    },
+  });
+
+  // Register the frontend tool to open the Add timesheet entry as a Human-in-the-Loop interaction
+
+  useHumanInTheLoop({
+    name: "addTimesheetEntry",
+    description: "Add a new timesheet entry.",
+    parameters: z.object({
+      date: z.string().optional().describe("The date of the timesheet entry (YYYY-MM-DD), if known."),
+      project: z.string().optional().describe("The project name for the timesheet entry, if known."),
+      hours: z.number().optional().describe("The hours worked for the timesheet entry, if known."),
+      description: z.string().optional().describe("The description of the timesheet entry, if known."),
+    }),
+    render: ({ status, args, respond }) => {
+      if (status !== "executing" || !respond) {
+        return null;
+      }
+      return (
+        <TimesheetModal
+          isOpen={true}
+          onClose={() => {
+            respond("Cancelled");
+          }}
+          onSuccess={() => {
+            respond("Success");
+          }}
+          initialData={{
+            date: args.date,
+            project: args.project,
+            hours: args.hours,
+            description: args.description,
           }}
         />
       );
@@ -229,7 +265,7 @@ export default function Dashboard() {
       )}
 
       {activeTab === "Timesheet" ? (
-        <div id="panel-timesheet" role="tabpanel" aria-label="Timesheet Dashboard">
+        <div id="panel-timesheet" role="tabpanel" aria-label="Timesheet Dashboard" className="flex-col-gap-2">
           {/* Summary Row */}
           <SummaryCards summary={summary} />
 
@@ -276,7 +312,7 @@ export default function Dashboard() {
           </div>
         </div>
       ) : (
-        <div id="panel-leaves" role="tabpanel" aria-label="Time Off and Leaves">
+        <div id="panel-leaves" role="tabpanel" aria-label="Time Off and Leaves" className="flex-col-gap-2">
           {/* Leave Balances Row */}
           <LeaveBalancesGrid balances={leaveBalances} />
 

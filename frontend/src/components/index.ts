@@ -8,3 +8,5 @@ export { default as LeaveBalancesGrid } from "./LeaveBalancesGrid";
 export { default as LeaveRequestsTable } from "./LeaveRequestsTable";
 export { default as SidebarInstructions } from "./SidebarInstructions";
 export { default as LeaveModal } from "./LeaveModal";
+export { default as TimesheetModal } from "./TimesheetModal";
+

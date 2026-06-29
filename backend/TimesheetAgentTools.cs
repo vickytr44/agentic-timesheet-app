@@ -17,7 +17,7 @@ public static class TimesheetAgentTools
         return
         [
             AIFunctionFactory.Create(service.GetTimesheet),
-            AIFunctionFactory.Create(service.AddTimesheetEntry),
+            //AIFunctionFactory.Create(service.AddTimesheetEntry),
             AIFunctionFactory.Create(service.RemoveTimesheetEntry),
             AIFunctionFactory.Create(service.ClearTimesheet),
             AIFunctionFactory.Create(service.SubmitTimesheet),
