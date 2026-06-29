@@ -30,26 +30,43 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 });
 builder.Services.AddAGUI();
 
-// 3. Configure IChatClient using Groq / OpenAI
-var apiKey = builder.Configuration["OpenAI:ApiKey"] ?? throw new InvalidOperationException("OpenAI API key is not configured.");
-var modelId = builder.Configuration["OpenAI:ModelId"] ?? throw new InvalidOperationException("OpenAI ModelId is not configured.");
-var endpoint = builder.Configuration["OpenAI:Endpoint"] ?? "https://api.groq.com/openai/v1/";
-
+// 3. Configure IChatClient using Groq / Ollama / OpenAI
+var provider = builder.Configuration["LlmProvider"] ?? "Groq";
 IChatClient chatClient;
 
-if (!string.IsNullOrEmpty(apiKey) && apiKey != "YOUR_GROQ_API_KEY")
+if (provider.Equals("Ollama", StringComparison.OrdinalIgnoreCase))
 {
-    Console.WriteLine($"--> Configuring Groq Chat Client with Endpoint: {endpoint} and Model: {modelId}...");
+    var endpoint = builder.Configuration["Ollama:Endpoint"] ?? "http://localhost:11434/v1";
+    var modelId = builder.Configuration["Ollama:ModelId"] ?? "llama3.2";
+    Console.WriteLine($"--> Configuring Ollama Chat Client with Endpoint: {endpoint} and Model: {modelId}...");
+    
     var clientOptions = new OpenAI.OpenAIClientOptions
     {
         Endpoint = new Uri(endpoint)
     };
-    var openAIClient = new OpenAI.OpenAIClient(new System.ClientModel.ApiKeyCredential(apiKey), clientOptions);
+    var openAIClient = new OpenAI.OpenAIClient(new System.ClientModel.ApiKeyCredential("ollama"), clientOptions);
     chatClient = openAIClient.GetChatClient(modelId).AsIChatClient();
 }
 else
 {
-    throw new InvalidOperationException("API key for Groq is not configured properly in appsettings.json or environment variables.");
+    var apiKey = builder.Configuration["OpenAI:ApiKey"] ?? throw new InvalidOperationException("OpenAI API key is not configured.");
+    var modelId = builder.Configuration["OpenAI:ModelId"] ?? throw new InvalidOperationException("OpenAI ModelId is not configured.");
+    var endpoint = builder.Configuration["OpenAI:Endpoint"] ?? "https://api.groq.com/openai/v1/";
+
+    if (!string.IsNullOrEmpty(apiKey) && apiKey != "YOUR_GROQ_API_KEY")
+    {
+        Console.WriteLine($"--> Configuring Groq Chat Client with Endpoint: {endpoint} and Model: {modelId}...");
+        var clientOptions = new OpenAI.OpenAIClientOptions
+        {
+            Endpoint = new Uri(endpoint)
+        };
+        var openAIClient = new OpenAI.OpenAIClient(new System.ClientModel.ApiKeyCredential(apiKey), clientOptions);
+        chatClient = openAIClient.GetChatClient(modelId).AsIChatClient();
+    }
+    else
+    {
+        throw new InvalidOperationException("API key for Groq is not configured properly in appsettings.json or environment variables.");
+    }
 }
 
 builder.Services.AddSingleton(chatClient);

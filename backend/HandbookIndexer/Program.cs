@@ -82,6 +82,46 @@ var ollamaClient = new OpenAIClient(
 IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator =
     ollamaClient.GetEmbeddingClient(embeddingModel).AsIEmbeddingGenerator();
 
+var handbookMode = configuration["Handbook:Mode"] ?? "LocalVectorless";
+if (handbookMode.Equals("PageIndexCloud", StringComparison.OrdinalIgnoreCase))
+{
+    var apiKey = configuration["Handbook:PageIndex:ApiKey"];
+    var endpoint = configuration["Handbook:PageIndex:Endpoint"] ?? "https://api.pageindex.ai";
+
+    if (string.IsNullOrWhiteSpace(apiKey) || apiKey == "YOUR_PAGEINDEX_API_KEY")
+    {
+        logger.LogError("PageIndex ApiKey is not configured. Please set 'Handbook:PageIndex:ApiKey' in appsettings.json.");
+        return 1;
+    }
+
+    logger.LogInformation("PageIndex mode is set. Uploading PDF to PageIndex Cloud: {Path}", pdfPath);
+    using var httpClient = new HttpClient();
+    httpClient.DefaultRequestHeaders.Add("api_key", apiKey);
+
+    using var content = new MultipartFormDataContent();
+    await using var fileStream = File.OpenRead(pdfPath);
+    using var fileContent = new StreamContent(fileStream);
+    fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/pdf");
+    content.Add(fileContent, "file", Path.GetFileName(pdfPath));
+
+    var response = await httpClient.PostAsync($"{endpoint.TrimEnd('/')}/doc/", content);
+    if (!response.IsSuccessStatusCode)
+    {
+        var errBody = await response.Content.ReadAsStringAsync();
+        logger.LogError("Failed to upload document to PageIndex: {Status} - {Error}", response.StatusCode, errBody);
+        return 1;
+    }
+
+    var json = await response.Content.ReadAsStringAsync();
+    using var doc = System.Text.Json.JsonDocument.Parse(json);
+    var docId = doc.RootElement.GetProperty("doc_id").GetString();
+    
+    logger.LogInformation("✓ Document successfully submitted to PageIndex Cloud!");
+    logger.LogInformation("Doc ID: {DocId}", docId);
+    logger.LogInformation("Please copy this Doc ID and paste it in your appsettings.json under 'Handbook:PageIndex:DocId'.");
+    return 0;
+}
+
 // ---------------------------------------------------------------------------
 // Open (or create) the SQLite vector store collection
 // ---------------------------------------------------------------------------
@@ -126,10 +166,10 @@ using (var vectorStore = new SqliteVectorStore(connectionString))
         host.Services.GetRequiredService<ILogger<HandbookIndexerService>>(),
         embeddingGenerator,
         collection);
-
     try
     {
-        await indexerService.IndexAsync(pdfPath);
+        bool generateEmbeddings = handbookMode.Equals("VectorSearch", StringComparison.OrdinalIgnoreCase);
+        await indexerService.IndexAsync(pdfPath, generateEmbeddings);
         logger.LogInformation("Done. Verifying records were saved to the database...");
 
         // Verify records were saved by querying the database directly
@@ -184,38 +224,41 @@ using (var vectorStore = new SqliteVectorStore(connectionString))
 
             logger.LogInformation("Successfully indexed and persisted handbook records. You can now start the backend and query the handbook.");
 
-            // Quick test: Try a semantic search to verify embeddings are working
-            logger.LogInformation("=== Testing Semantic Search ===");
-            try
+            if (generateEmbeddings)
             {
-                var testQuery = "What is the company leave policy?";
-                var queryEmbeddings = await embeddingGenerator.GenerateAsync([testQuery]);
-                var queryVector = queryEmbeddings[0].Vector.ToArray();
-                logger.LogInformation("Generated test query embedding with {Dimensions} dimensions", queryVector.Length);
-
-                var searchOptions = new VectorSearchOptions<HandbookSectionRecord>();
-                var searchResults = collection.SearchAsync(queryVector, top: 2, options: searchOptions);
-
-                int resultCount = 0;
-                await foreach (var result in searchResults)
+                // Quick test: Try a semantic search to verify embeddings are working
+                logger.LogInformation("=== Testing Semantic Search ===");
+                try
                 {
-                    resultCount++;
-                    logger.LogInformation("Search result {Count}: Id={Id}, Title={Title}, Score={Score}",
-                        resultCount, result.Record?.Id, result.Record?.Title, result.Score);
-                }
+                    var testQuery = "What is the company leave policy?";
+                    var queryEmbeddings = await embeddingGenerator.GenerateAsync([testQuery]);
+                    var queryVector = queryEmbeddings[0].Vector.ToArray();
+                    logger.LogInformation("Generated test query embedding with {Dimensions} dimensions", queryVector.Length);
 
-                if (resultCount == 0)
-                {
-                    logger.LogWarning("WARNING: Semantic search returned no results. Embeddings may not be properly indexed.");
+                    var searchOptions = new VectorSearchOptions<HandbookSectionRecord>();
+                    var searchResults = collection.SearchAsync(queryVector, top: 2, options: searchOptions);
+
+                    int resultCount = 0;
+                    await foreach (var result in searchResults)
+                    {
+                        resultCount++;
+                        logger.LogInformation("Search result {Count}: Id={Id}, Title={Title}, Score={Score}",
+                            resultCount, result.Record?.Id, result.Record?.Title, result.Score);
+                    }
+
+                    if (resultCount == 0)
+                    {
+                        logger.LogWarning("WARNING: Semantic search returned no results. Embeddings may not be properly indexed.");
+                    }
+                    else
+                    {
+                        logger.LogInformation("✓ Semantic search is working! Found {Count} relevant sections.", resultCount);
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    logger.LogInformation("✓ Semantic search is working! Found {Count} relevant sections.", resultCount);
+                    logger.LogError(ex, "Error during semantic search test");
                 }
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error during semantic search test");
             }
         }
         catch (Exception ex)

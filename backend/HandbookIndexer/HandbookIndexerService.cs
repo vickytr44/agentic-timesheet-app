@@ -16,7 +16,7 @@ public sealed class HandbookIndexerService(
     IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator,
     VectorStoreCollection<string, HandbookSectionRecord> collection)
 {
-    public async Task IndexAsync(string pdfPath, CancellationToken cancellationToken = default)
+    public async Task IndexAsync(string pdfPath, bool generateEmbeddings = true, CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Opening PDF: {Path}", pdfPath);
 
@@ -41,28 +41,38 @@ public sealed class HandbookIndexerService(
                     continue;
                 }
 
-                logger.LogInformation("[{Current}/{Total}] Embedding page {PageNumber}...",
-                    page.Number, pdf.NumberOfPages, page.Number);
+                ReadOnlyMemory<float> embedding = ReadOnlyMemory<float>.Empty;
 
-                var embeddings = await embeddingGenerator.GenerateAsync(
-                    [content], cancellationToken: cancellationToken);
-
-                if (embeddings == null || embeddings.Count == 0)
+                if (generateEmbeddings)
                 {
-                    logger.LogError("Embedding generator returned null or empty result for page {PageNumber}", page.Number);
-                    skipped++;
-                    continue;
-                }
+                    logger.LogInformation("[{Current}/{Total}] Embedding page {PageNumber}...",
+                        page.Number, pdf.NumberOfPages, page.Number);
 
-                var embedding = embeddings[0].Vector;
-                if (embedding.IsEmpty)
+                    var embeddings = await embeddingGenerator.GenerateAsync(
+                        [content], cancellationToken: cancellationToken);
+
+                    if (embeddings == null || embeddings.Count == 0)
+                    {
+                        logger.LogError("Embedding generator returned null or empty result for page {PageNumber}", page.Number);
+                        skipped++;
+                        continue;
+                    }
+
+                    embedding = embeddings[0].Vector;
+                    if (embedding.IsEmpty)
+                    {
+                        logger.LogError("Generated embedding is empty for page {PageNumber}", page.Number);
+                        skipped++;
+                        continue;
+                    }
+
+                    logger.LogDebug("Generated embedding with {Dimensions} dimensions", embedding.Length);
+                }
+                else
                 {
-                    logger.LogError("Generated embedding is empty for page {PageNumber}", page.Number);
-                    skipped++;
-                    continue;
+                    logger.LogInformation("[{Current}/{Total}] Indexing page {PageNumber} (without embeddings)...",
+                        page.Number, pdf.NumberOfPages, page.Number);
                 }
-
-                logger.LogDebug("Generated embedding with {Dimensions} dimensions", embedding.Length);
 
                 var record = BuildRecord(page.Number, content, embedding);
                 var embeddingArray = record.ContentEmbedding;
