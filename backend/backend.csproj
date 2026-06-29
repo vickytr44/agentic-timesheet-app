@@ -1,10 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <NoWarn>$(NoWarn);MEAI001;MAAIW001</NoWarn>
+    <UserSecretsId>1cdd0eea-15cc-4137-aa3e-7d9b6877e993</UserSecretsId>
   </PropertyGroup>
 
   <!-- Exclude sibling projects from this project's compile glob -->

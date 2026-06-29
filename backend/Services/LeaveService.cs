@@ -1,17 +1,21 @@
 using backend.Models;
+using Microsoft.Extensions.Logging;
 using System.ComponentModel;
 
 namespace backend.Services
 {
-    public class LeaveService
+    public class LeaveService : ILeaveService
     {
         private readonly List<LeaveRequest> _requests = [];
         private readonly Dictionary<LeaveTypeEnum, double> _balances = [];
-        private readonly TimesheetService _timesheetService;
+        private readonly ITimesheetService _timesheetService;
+        private readonly object _lock = new();
+        private readonly ILogger<LeaveService> _logger;
 
-        public LeaveService(TimesheetService timesheetService)
+        public LeaveService(ITimesheetService timesheetService, ILogger<LeaveService> logger)
         {
             _timesheetService = timesheetService;
+            _logger = logger;
 
             // Seed leave balances
             _balances[LeaveTypeEnum.Vacation] = 20.0;
@@ -41,13 +45,19 @@ namespace backend.Services
         [Description("Gets the user's available leave balances for each leave type (Vacation, Sick, Parental).")]
         public Dictionary<LeaveTypeEnum, double> GetLeaveBalances()
         {
-            return new Dictionary<LeaveTypeEnum, double>(_balances);
+            lock (_lock)
+            {
+                return new Dictionary<LeaveTypeEnum, double>(_balances);
+            }
         }
 
         [Description("Gets the list of all applied leave requests.")]
         public List<LeaveRequest> GetLeaveRequests()
         {
-            return _requests.OrderByDescending(r => r.StartDate).ToList();
+            lock (_lock)
+            {
+                return _requests.OrderByDescending(r => r.StartDate).ToList();
+            }
         }
 
         [Description("Applies for a new leave request. Deducts balances and automatically populates the user's timesheet for those dates.")]
@@ -57,75 +67,79 @@ namespace backend.Services
             [Description("Leave type (e.g., Vacation, Sick, Parental).")] LeaveTypeEnum leaveType,
             [Description("Reason or description for the leave.")] string reason)
         {
-            // Validate dates (DateOnly parameters)
-            if (endDate < startDate)
+            lock (_lock)
             {
-                throw new ArgumentException("End date cannot be before start date.");
-            }
-
-            // Calculate working days (weekdays)
-            var weekdays = new List<DateOnly>();
-            for (var date = startDate; date <= endDate; date = date.AddDays(1))
-            {
-                if (date.DayOfWeek != DayOfWeek.Saturday && date.DayOfWeek != DayOfWeek.Sunday)
+                // Validate dates (DateOnly parameters)
+                if (endDate < startDate)
                 {
-                    weekdays.Add(date);
+                    throw new ArgumentException("End date cannot be before start date.");
                 }
-            }
 
-            var days = weekdays.Count;
-
-            if (days == 0)
-            {
-                throw new ArgumentException("Leave duration must contain at least one weekday (Monday to Friday).");
-            }
-
-            if (!_balances.TryGetValue(leaveType, out var balance))
-            {
-                throw new ArgumentException($"Unknown leave type: {leaveType}. Available types are: Vacation, Sick, Parental.");
-            }
-
-            if (balance < days)
-            {
-                throw new InvalidOperationException($"Insufficient leave balance. Remaining {leaveType} balance: {balance} days. Requested: {days} days.");
-            }
-
-            // Deduct balance
-            _balances[leaveType] = balance - days;
-
-            var request = new LeaveRequest
-            {
-                Id = Guid.NewGuid(),
-                StartDate = startDate,
-                EndDate = endDate,
-                LeaveType = leaveType,
-                Reason = reason,
-                Status = LeaveStatusEnum.Approved, // Auto-approved for this copilot demonstration
-                Days = days
-            };
-
-            _requests.Add(request);
-
-            // Automatically populate timesheet entries for each weekday of the leave
-            foreach (var date in weekdays)
-            {
-                try
+                // Calculate working days (weekdays)
+                var weekdays = new List<DateOnly>();
+                for (var date = startDate; date <= endDate; date = date.AddDays(1))
                 {
-                    _timesheetService.AddTimesheetEntry(
-                        date: date.ToString("yyyy-MM-dd"),
-                        project: "Leave",
-                        hours: 8.0,
-                        description: $"{leaveType} Leave: {reason}"
-                    );
+                    if (date.DayOfWeek != DayOfWeek.Saturday && date.DayOfWeek != DayOfWeek.Sunday)
+                    {
+                        weekdays.Add(date);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    // If timesheet is locked/submitted, we output to diagnostic console but don't crash the leave application
-                    Console.WriteLine($"--> Auto-timesheet population skipped for {date:yyyy-MM-dd}: {ex.Message}");
-                }
-            }
 
-            return request;
+                var days = weekdays.Count;
+
+                if (days == 0)
+                {
+                    throw new ArgumentException("Leave duration must contain at least one weekday (Monday to Friday).");
+                }
+
+                if (!_balances.TryGetValue(leaveType, out var balance))
+                {
+                    throw new ArgumentException($"Unknown leave type: {leaveType}. Available types are: Vacation, Sick, Parental.");
+                }
+
+                if (balance < days)
+                {
+                    throw new InvalidOperationException($"Insufficient leave balance. Remaining {leaveType} balance: {balance} days. Requested: {days} days.");
+                }
+
+                // Deduct balance
+                _balances[leaveType] = balance - days;
+
+                var request = new LeaveRequest
+                {
+                    Id = Guid.NewGuid(),
+                    StartDate = startDate,
+                    EndDate = endDate,
+                    LeaveType = leaveType,
+                    Reason = reason,
+                    Status = LeaveStatusEnum.Approved, // Auto-approved for this copilot demonstration
+                    Days = days
+                };
+
+                _requests.Add(request);
+                _logger.LogInformation("Leave request applied: {Id} of type: {LeaveType} for {Days} days", request.Id, request.LeaveType, request.Days);
+
+                // Automatically populate timesheet entries for each weekday of the leave
+                foreach (var date in weekdays)
+                {
+                    try
+                    {
+                        _timesheetService.AddTimesheetEntry(
+                            date: date.ToString("yyyy-MM-dd"),
+                            project: "Leave",
+                            hours: 8.0,
+                            description: $"{leaveType} Leave: {reason}"
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        // If timesheet is locked/submitted, we output to diagnostic logger but don't crash the leave application
+                        _logger.LogWarning(ex, "Auto-timesheet population skipped for {Date}", date.ToString("yyyy-MM-dd"));
+                    }
+                }
+
+                return request;
+            }
         }
     }
 }

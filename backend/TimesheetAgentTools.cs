@@ -12,7 +12,7 @@ public static class TimesheetAgentTools
     /// <summary>
     /// Creates the full list of AI tools bound to the given TimesheetService instance.
     /// </summary>
-    public static IList<AITool> CreateTools(TimesheetService service)
+    public static IList<AITool> CreateTools(ITimesheetService service)
     {
         return
         [
@@ -30,7 +30,7 @@ public static class TimesheetAgentTools
     /// <summary>
     /// Creates the full list of AI tools bound to the given LeaveService instance.
     /// </summary>
-    public static IList<AITool> CreateLeaveTools(LeaveService service)
+    public static IList<AITool> CreateLeaveTools(ILeaveService service)
     {
         return
         [
@@ -43,7 +43,7 @@ public static class TimesheetAgentTools
     /// <summary>
     /// Creates the full list of AI tools bound to the given HandbookService instance.
     /// </summary>
-    public static IList<AITool> CreateHandbookTools(HandbookService service)
+    public static IList<AITool> CreateHandbookTools(IHandbookService service)
     {
         return
         [

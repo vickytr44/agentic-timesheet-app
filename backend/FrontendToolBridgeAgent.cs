@@ -1,5 +1,6 @@
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 
@@ -8,9 +9,13 @@ namespace backend;
 internal sealed class FrontendToolBridgeAgent : DelegatingAIAgent
 {
     private const string StateBagKey = "agui_client_tools";
+    private readonly ILogger _logger;
 
-    public FrontendToolBridgeAgent(AIAgent innerAgent)
-        : base(innerAgent) { }
+    public FrontendToolBridgeAgent(AIAgent innerAgent, ILogger logger)
+        : base(innerAgent)
+    {
+        _logger = logger;
+    }
 
     protected override async Task<AgentResponse> RunCoreAsync(
         IEnumerable<ChatMessage> messages,
@@ -71,7 +76,7 @@ internal sealed class FrontendToolBridgeAgent : DelegatingAIAgent
 
                         if (isFrontendTool && !isWrapped)
                         {
-                            Console.WriteLine($"[FrontendToolBridge] Filtering out unwrapped frontend tool call stream: {fcc.Name} ({fcc.CallId})");
+                            _logger.LogInformation("Filtering out unwrapped frontend tool call stream: {Name} ({CallId})", fcc.Name, fcc.CallId);
                             continue;
                         }
                     }
@@ -90,7 +95,7 @@ internal sealed class FrontendToolBridgeAgent : DelegatingAIAgent
         }
     }
 
-    private static void StoreFrontendTools(AgentSession? session, AgentRunOptions? options)
+    private void StoreFrontendTools(AgentSession? session, AgentRunOptions? options)
     {
         if (options is ChatClientAgentRunOptions chatRunOptions &&
             chatRunOptions.ChatOptions?.Tools is { Count: > 0 } incomingTools)
@@ -100,7 +105,7 @@ internal sealed class FrontendToolBridgeAgent : DelegatingAIAgent
             {
                 session?.StateBag.SetValue(StateBagKey, (object)clientTools);
                 FrontendToolContext.CurrentTools = clientTools;
-                Console.WriteLine($"[FrontendToolBridge] Stored {clientTools.Count} frontend tool(s).");
+                _logger.LogInformation("Stored {Count} frontend tool(s).", clientTools.Count);
             }
         }
     }
@@ -109,7 +114,7 @@ internal sealed class FrontendToolBridgeAgent : DelegatingAIAgent
     /// Scans history and filters out duplicate/residual tool call allocations 
     /// so nested sub-agents don't mistake old tool buffers for current instructions.
     /// </summary>
-    private static IEnumerable<ChatMessage> SanitizeMessageHistory(IEnumerable<ChatMessage> messages)
+    private IEnumerable<ChatMessage> SanitizeMessageHistory(IEnumerable<ChatMessage> messages)
     {
         var messageList = messages.ToList();
 
@@ -128,7 +133,7 @@ internal sealed class FrontendToolBridgeAgent : DelegatingAIAgent
 
                 if (isEmpty)
                 {
-                    Console.WriteLine("[FrontendToolBridge] Detected tool message with empty content. Overwriting with 'Success' to prevent orchestration loop.");
+                    _logger.LogInformation("Detected tool message with empty content. Overwriting with 'Success' to prevent orchestration loop.");
 
                     var funcResult = msg.Contents?.OfType<FunctionResultContent>().FirstOrDefault();
                     if (funcResult != null)
@@ -170,7 +175,7 @@ internal sealed class FrontendToolBridgeAgent : DelegatingAIAgent
 
                         if (matchingCallId != null && matchingCallId != frc.CallId)
                         {
-                            Console.WriteLine($"[FrontendToolBridge] Aligning mismatching tool call ID. Tool response ID '{frc.CallId}' aligned to wrapped ID '{matchingCallId}'");
+                            _logger.LogInformation("Aligning mismatching tool call ID. Tool response ID '{FrcCallId}' aligned to wrapped ID '{MatchingCallId}'", frc.CallId, matchingCallId);
                             newContents.Add(new FunctionResultContent(matchingCallId, frc.Result));
                             mutated = true;
                             continue;

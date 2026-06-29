@@ -2,17 +2,21 @@ using backend.Services;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
 namespace backend;
 
 public class TimesheetAgentFactory(
     IChatClient chatClient,
-    TimesheetService timesheetService,
-    HandbookService handbookService,
-    LeaveService leaveService,
-    JsonSerializerOptions jsonSerializerOptions)
+    ITimesheetService timesheetService,
+    IHandbookService handbookService,
+    ILeaveService leaveService,
+    JsonSerializerOptions jsonSerializerOptions,
+    ILogger<TimesheetAgentFactory> logger)
 {
+    private readonly ILogger<TimesheetAgentFactory> _logger = logger;
+
     public AIAgent CreateTimesheetAgent()
     {
         var currentDateStr = DateTime.Today.ToString("yyyy-MM-dd");
@@ -42,7 +46,7 @@ public class TimesheetAgentFactory(
         var middlewareEnabledTimeSheetAgent = coreTimesheetAgent.AsBuilder().Use(CustomFunctionCallingMiddleware).Build();
 
         // Wrap the Timesheet Agent with the state synchronization logic
-        var timesheetAgent = new TimesheetSharedStateAgent(middlewareEnabledTimeSheetAgent, timesheetService, jsonSerializerOptions);
+        var timesheetAgent = new TimesheetSharedStateAgent(middlewareEnabledTimeSheetAgent, timesheetService, jsonSerializerOptions, _logger);
 
         // 2. Create the Handbook Agent (Specialist)
         var handbookAgent = new ChatClientAgent(
@@ -81,7 +85,6 @@ public class TimesheetAgentFactory(
         var middlewareEnabledLeaveAgent = leaveAgent.AsBuilder().Use(CustomFunctionCallingMiddleware).Build();
 
         // 4. Create the Triage Agent (Coordinator)
-
         var triageAgent = new ChatClientAgent(
             chatClient: chatClient,
             options: new ChatClientAgentOptions
@@ -117,18 +120,18 @@ public class TimesheetAgentFactory(
         // 6. Return the workflow wrapped with the FrontendToolBridge
         //    so that frontend tools from the AG-UI adapter are captured
         //    BEFORE the handoff workflow replaces ChatOptions.Tools.
-        return new FrontendToolBridgeAgent(workflow.AsAIAgent());
+        return new FrontendToolBridgeAgent(workflow.AsAIAgent(), _logger);
     }
 
-    static async ValueTask<object?> CustomFunctionCallingMiddleware(
-    AIAgent agent,
-    FunctionInvocationContext context,
-    Func<FunctionInvocationContext, CancellationToken, ValueTask<object?>> next,
-    CancellationToken cancellationToken)
+    private async ValueTask<object?> CustomFunctionCallingMiddleware(
+        AIAgent agent,
+        FunctionInvocationContext context,
+        Func<FunctionInvocationContext, CancellationToken, ValueTask<object?>> next,
+        CancellationToken cancellationToken)
     {
-        Console.WriteLine($"Function Name: {context!.Function.Name}: evoked by agent name: {agent.Name}");
+        _logger.LogInformation("Function Name: {FunctionName} invoked by agent name: {AgentName}", context.Function.Name, agent.Name);
         var result = await next(context, cancellationToken);
-        Console.WriteLine($"Function Call Result: {result}");
+        _logger.LogInformation("Function Call Result: {Result}", result);
 
         return result;
     }

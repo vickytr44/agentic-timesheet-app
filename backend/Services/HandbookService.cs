@@ -11,13 +11,16 @@ using System.Net.Http;
 using System.Linq;
 
 
+using Microsoft.Extensions.Options;
+using backend.Configuration;
+
 namespace backend.Services;
 
 /// <summary>
 /// Provides semantic search over the employee handbook vector database.
 /// The database must be populated separately by running the HandbookIndexer console tool.
 /// </summary>
-public sealed class HandbookService
+public sealed class HandbookService : IHandbookService
 {
     private readonly ILogger<HandbookService> _logger;
     private readonly IEmbeddingGenerator<string, Embedding<float>> _embeddingGenerator;
@@ -26,22 +29,22 @@ public sealed class HandbookService
     private VectorStoreCollection<string, HandbookSectionRecord>? _collection;
 
     private readonly IChatClient _chatClient;
-    private readonly string _mode;
-    private readonly string _pageIndexApiKey;
-    private readonly string _pageIndexDocId;
-    private readonly string _pageIndexEndpoint;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly HandbookOptions _options;
 
-    public HandbookService(ILogger<HandbookService> logger, IConfiguration configuration, IChatClient chatClient)
+    public HandbookService(
+        ILogger<HandbookService> logger,
+        IOptions<HandbookOptions> handbookOptions,
+        IOptions<OllamaOptions> ollamaOptions,
+        IChatClient chatClient,
+        IHttpClientFactory httpClientFactory)
     {
         _logger = logger;
         _connectionString = BuildConnectionString();
-        _embeddingGenerator = CreateEmbeddingGenerator(configuration);
+        _embeddingGenerator = CreateEmbeddingGenerator(ollamaOptions.Value);
         _chatClient = chatClient;
-
-        _mode = configuration["Handbook:Mode"] ?? "LocalVectorless";
-        _pageIndexApiKey = configuration["Handbook:PageIndex:ApiKey"] ?? string.Empty;
-        _pageIndexDocId = configuration["Handbook:PageIndex:DocId"] ?? string.Empty;
-        _pageIndexEndpoint = configuration["Handbook:PageIndex:Endpoint"] ?? "https://api.pageindex.ai";
+        _httpClientFactory = httpClientFactory;
+        _options = handbookOptions.Value;
 
         _initTask = InitializeCollectionAsync();
     }
@@ -59,7 +62,7 @@ public sealed class HandbookService
         if (string.IsNullOrWhiteSpace(query))
             return "Please provide a specific query to search the handbook.";
 
-        if (_mode.Equals("PageIndexCloud", StringComparison.OrdinalIgnoreCase))
+        if (_options.Mode.Equals("PageIndexCloud", StringComparison.OrdinalIgnoreCase))
         {
             return await SearchHandbookPageIndexCloudAsync(query);
         }
@@ -76,7 +79,7 @@ public sealed class HandbookService
                    "Please run the HandbookIndexer tool first, then restart the backend.";
         }
 
-        if (_mode.Equals("LocalVectorless", StringComparison.OrdinalIgnoreCase))
+        if (_options.Mode.Equals("LocalVectorless", StringComparison.OrdinalIgnoreCase))
         {
             return await SearchHandbookLocalVectorlessAsync(query);
         }
@@ -291,12 +294,12 @@ Return ONLY the raw JSON structure. Do not wrap it in markdown code blocks or ad
 
     private async Task<string> SearchHandbookPageIndexCloudAsync(string query)
     {
-        if (string.IsNullOrWhiteSpace(_pageIndexApiKey) || _pageIndexApiKey == "YOUR_PAGEINDEX_API_KEY")
+        if (string.IsNullOrWhiteSpace(_options.PageIndex.ApiKey) || _options.PageIndex.ApiKey == "YOUR_PAGEINDEX_API_KEY")
         {
             return "PageIndex Cloud configuration error: ApiKey is not set in appsettings.json.";
         }
 
-        if (string.IsNullOrWhiteSpace(_pageIndexDocId) || _pageIndexDocId == "YOUR_PAGEINDEX_DOC_ID")
+        if (string.IsNullOrWhiteSpace(_options.PageIndex.DocId) || _options.PageIndex.DocId == "YOUR_PAGEINDEX_DOC_ID")
         {
             return "PageIndex Cloud configuration error: DocId is not set in appsettings.json. Please run the HandbookIndexer console app first.";
         }
@@ -305,10 +308,10 @@ Return ONLY the raw JSON structure. Do not wrap it in markdown code blocks or ad
         {
             _logger.LogInformation("Performing PageIndex Cloud search for: '{Query}'", query);
 
-            using var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Add("api_key", _pageIndexApiKey);
+            var httpClient = _httpClientFactory.CreateClient();
+            httpClient.DefaultRequestHeaders.Add("api_key", _options.PageIndex.ApiKey);
 
-            var url = $"{_pageIndexEndpoint.TrimEnd('/')}/doc/{_pageIndexDocId}/?type=tree&node_summary=true";
+            var url = $"{_options.PageIndex.Endpoint.TrimEnd('/')}/doc/{_options.PageIndex.DocId}/?type=tree&node_summary=true";
             var response = await httpClient.GetAsync(url);
             if (!response.IsSuccessStatusCode)
             {
@@ -440,10 +443,10 @@ Return ONLY the raw JSON structure. Do not wrap it in markdown code blocks or ad
     }
 
     private static IEmbeddingGenerator<string, Embedding<float>> CreateEmbeddingGenerator(
-        IConfiguration configuration)
+        OllamaOptions options)
     {
-        var endpoint = configuration["Ollama:Endpoint"] ?? "http://localhost:11434/v1";
-        var model = configuration["Ollama:EmbeddingModel"] ?? "nomic-embed-text";
+        var endpoint = options.Endpoint;
+        var model = options.EmbeddingModel;
 
         var client = new OpenAIClient(
             new ApiKeyCredential("ollama"), // Ollama does not require a real API key

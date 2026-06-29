@@ -1,6 +1,8 @@
 using backend.Services;
+using backend.Models;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -10,14 +12,20 @@ namespace backend;
 [SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes", Justification = "Instantiated by TimesheetAgentFactory")]
 internal sealed class TimesheetSharedStateAgent : DelegatingAIAgent
 {
-    private readonly TimesheetService _timesheetService;
+    private readonly ITimesheetService _timesheetService;
     private readonly JsonSerializerOptions _jsonSerializerOptions;
+    private readonly ILogger _logger;
 
-    public TimesheetSharedStateAgent(AIAgent innerAgent, TimesheetService timesheetService, JsonSerializerOptions jsonSerializerOptions)
+    public TimesheetSharedStateAgent(
+        AIAgent innerAgent,
+        ITimesheetService timesheetService,
+        JsonSerializerOptions jsonSerializerOptions,
+        ILogger logger)
         : base(innerAgent)
     {
         _timesheetService = timesheetService;
         _jsonSerializerOptions = jsonSerializerOptions;
+        _logger = logger;
     }
 
     protected override Task<AgentResponse> RunCoreAsync(IEnumerable<ChatMessage> messages, AgentSession session, AgentRunOptions options, CancellationToken cancellationToken = default)
@@ -52,7 +60,7 @@ internal sealed class TimesheetSharedStateAgent : DelegatingAIAgent
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"--> Error syncing incoming state: {ex.Message}");
+            _logger.LogError(ex, "Error syncing incoming state.");
         }
 
         var firstRunOptions = new ChatClientAgentRunOptions
@@ -113,7 +121,7 @@ internal sealed class TimesheetSharedStateAgent : DelegatingAIAgent
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"--> Error syncing response state: {ex.Message}");
+                _logger.LogError(ex, "Error syncing response state.");
             }
 
             byte[] stateBytes = JsonSerializer.SerializeToUtf8Bytes(
