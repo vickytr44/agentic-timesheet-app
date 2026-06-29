@@ -1,4 +1,3 @@
-import React from "react";
 import { Trash2, Inbox } from "lucide-react";
 import { TimesheetEntry } from "@/lib/types";
 
@@ -12,9 +11,9 @@ interface TimesheetTableProps {
 export default function TimesheetTable({ entries, onDelete, isSubmitted, loading }: TimesheetTableProps) {
   if (loading && entries.length === 0) {
     return (
-      <div className="empty-state" style={{ padding: "4rem 1rem" }}>
-        <div className="spin-animation" style={{ width: "24px", height: "24px", border: "2px solid rgba(255,255,255,0.1)", borderTopColor: "rgb(var(--color-primary))", borderRadius: "50%" }} />
-        <p style={{ marginTop: "1rem" }}>Loading your logged hours...</p>
+      <div className="empty-state loading-state">
+        <div className="spin-animation loading-spinner" />
+        <p>Loading your logged hours...</p>
       </div>
     );
   }
@@ -22,9 +21,9 @@ export default function TimesheetTable({ entries, onDelete, isSubmitted, loading
   if (entries.length === 0) {
     return (
       <div className="empty-state">
-        <Inbox size={48} style={{ color: "var(--text-muted)" }} />
-        <h4 style={{ color: "#fff", fontWeight: "600" }}>No Hours Logged Yet</h4>
-        <p style={{ fontSize: "0.85rem", maxWidth: "320px", textAlign: "center", lineHeight: "1.5" }}>
+        <Inbox size={48} />
+        <h4>No Hours Logged Yet</h4>
+        <p>
           Tell your AI Copilot to log hours for you, or use the form above to add an entry manually!
         </p>
       </div>
@@ -39,37 +38,38 @@ export default function TimesheetTable({ entries, onDelete, isSubmitted, loading
             <th>Date</th>
             <th>Project</th>
             <th>Description / Tasks Completed</th>
-            <th style={{ textAlign: "right" }}>Hours</th>
-            {!isSubmitted && <th style={{ textAlign: "center" }}>Action</th>}
+            <th className="th-right">Hours</th>
+            {!isSubmitted && <th className="th-center">Action</th>}
           </tr>
         </thead>
         <tbody>
           {entries.map((entry, index) => (
             <tr key={entry.id ? `${entry.id}-${index}` : index}>
-              <td style={{ whiteSpace: "nowrap", fontWeight: "500", color: "var(--text-muted)", width: "120px" }}>
+              <td className="td-date">
                 {entry.date}
               </td>
-              <td style={{ width: "180px" }}>
+              <td className="td-project">
                 <span className="project-badge">
                   {entry.project}
                 </span>
               </td>
-              <td style={{ lineHeight: "1.4", color: "#d1d5db" }}>
+              <td className="td-description">
                 {entry.description}
-                <div style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.2)", marginTop: "0.25rem", userSelect: "all" }}>
+                <div className="td-id">
                   ID: {entry.id}
                 </div>
               </td>
-              <td style={{ textAlign: "right", width: "100px" }}>
+              <td className="td-hours">
                 <span className="hours-badge">
                   {entry.hours}h
                 </span>
               </td>
               {!isSubmitted && (
-                <td style={{ textAlign: "center", width: "80px" }}>
+                <td className="td-action">
                   <button
                     onClick={() => onDelete(entry.id)}
                     className="btn btn-danger"
+                    aria-label={`Delete entry for ${entry.project} on ${entry.date}`}
                     title="Delete entry"
                   >
                     <Trash2 size={15} />

@@ -26,3 +26,15 @@ export type LeaveBalances = {
   Sick: number;
   Parental: number;
 };
+
+export type LeaveType = "Vacation" | "Sick" | "Parental";
+
+export const LEAVE_TYPES: LeaveType[] = ["Vacation", "Sick", "Parental"];
+
+/** Shared shape for pre-filling the leave application form. */
+export type LeaveFormData = {
+  startDate?: string;
+  endDate?: string;
+  leaveType?: string;
+  reason?: string;
+};

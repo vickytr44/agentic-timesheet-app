@@ -513,7 +513,278 @@ h1, h2, h3, h4 {
   margin-bottom: 2rem;
 }
 
-/* Modal Overlay & Base styles (fallback for LeaveModal) */
+
+
+
+.modal-content {
+  width: 100%;
+  max-width: 500px;
+  margin: 1.5rem;
+  padding: 2rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-accent);
+  border-radius: 16px;
+  box-shadow: var(--shadow-premium);
+  backdrop-filter: blur(16px);
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── New utility / layout classes (replaces inline styles) ───────────── */
+
+/* Metric card header row (icon + title) */
+.metric-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Metric value with secondary unit */
+.metric-value-unit {
+  font-size: 1.25rem;
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
+/* Push footer to the bottom of a flex column */
+.metric-footer--bottom {
+  margin-top: auto;
+}
+
+/* Metric value row (value + target label side-by-side) */
+.metric-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.metric-value-target {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Progress bar */
+.progress-bar-track {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgb(var(--color-secondary)) 0%, rgb(var(--color-primary)) 100%);
+  transition: width 0.5s ease-out;
+}
+
+.metric-footer--small-gap {
+  margin-top: 0.25rem;
+}
+
+/* Column flex layout helpers */
+.flex-col-gap-2 {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.flex-row-center {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Section header with actions */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.section-header .form-title {
+  margin-bottom: 0;
+}
+
+/* Error banner */
+.error-banner {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 1rem;
+  border-radius: 8px;
+  color: #f87171;
+}
+
+/* Header subtitle */
+.header-subtitle {
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+  font-size: 0.95rem;
+}
+
+/* Refresh button */
+.btn-icon {
+  padding: 0.5rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-card);
+}
+
+/* Button warning variant (Undo Timesheet) */
+.btn-warning {
+  background: linear-gradient(135deg, rgb(var(--color-warning)) 0%, #d97706 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px 0 rgba(217, 119, 6, 0.4);
+}
+
+.btn-warning:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px 0 rgba(217, 119, 6, 0.6);
+}
+
+/* Button secondary variant */
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-card);
+  color: var(--text-muted);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* Sidebar instructions card */
+.sidebar-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.sidebar-intro {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.sidebar-list {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sidebar-list strong {
+  color: #fff;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 1rem;
+  background: rgba(255,255,255,0.02);
+  border-radius: 8px;
+  border: 1px dashed var(--border-card);
+}
+
+.sidebar-footer p {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Table cell helpers */
+.td-date {
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--text-muted);
+  width: 120px;
+}
+
+.td-project {
+  width: 180px;
+}
+
+.td-description {
+  line-height: 1.4;
+  color: #d1d5db;
+}
+
+.td-id {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.2);
+  margin-top: 0.25rem;
+  user-select: all;
+}
+
+.td-hours {
+  text-align: right;
+  width: 100px;
+}
+
+.td-action {
+  text-align: center;
+  width: 80px;
+}
+
+.td-muted {
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.td-days {
+  text-align: right;
+  font-weight: 700;
+  color: rgb(var(--color-secondary));
+}
+
+.td-reason {
+  color: #d1d5db;
+}
+
+.td-center {
+  text-align: center;
+}
+
+.th-right {
+  text-align: right;
+}
+
+.th-center {
+  text-align: center;
+}
+
+/* Empty state text */
+.empty-state h4 {
+  color: #fff;
+  font-weight: 600;
+}
+
+.empty-state p {
+  font-size: 0.85rem;
+  max-width: 320px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* Loading spinner (replaces inline styles in TimesheetTable) */
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(255,255,255,0.1);
+  border-top-color: rgb(var(--color-primary));
+  border-radius: 50%;
+}
+
+.loading-state {
+  padding: 4rem 1rem;
+}
+
+/* ─── LeaveModal styles (migrated from styled-jsx) ────────────────────── */
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -526,17 +797,106 @@ h1, h2, h3, h4 {
   align-items: center;
   justify-content: center;
   z-index: 9999;
+  animation: fadeIn 0.2s ease-out;
 }
 
-.modal-content {
-  width: 100%;
-  max-width: 500px;
-  margin: 1.5rem;
-  padding: 2rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-accent);
-  border-radius: 16px;
-  box-shadow: var(--shadow-premium);
-  backdrop-filter: blur(16px);
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: 50%;
+}
+
+.modal-close-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.modal-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.modal-form-group label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.modal-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.select-field {
+  background-color: #121420;
+  cursor: pointer;
+}
+
+.select-field option {
+  background-color: #121420;
+  color: #fff;
+}
+
+.textarea-field {
+  resize: none;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.error-message {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  color: #f87171;
+  font-size: 0.85rem;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Spin animation for the refresh icon */
+.spin-animation {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 

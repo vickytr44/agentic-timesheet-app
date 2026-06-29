@@ -1,5 +1,5 @@
-import React from "react";
 import { Clock, CheckSquare, Layers, FileText } from "lucide-react";
+import MetricCard from "./MetricCard";
 
 interface SummaryCardsProps {
   summary: {
@@ -19,78 +19,65 @@ export default function SummaryCards({ summary }: SummaryCardsProps) {
   // Progress relative to standard 40h work week
   const progressPercent = Math.min(Math.round((totalHours / 40) * 100), 100);
 
+  const statusColor = status === "Submitted"
+    ? "rgb(var(--color-success))"
+    : "rgb(var(--color-warning))";
+
   return (
     <div className="metrics-row">
-      {/* Hours logged card */}
+      {/* Hours logged card — unique layout with progress bar */}
       <div className="glass-card metric-card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="metric-card-header">
           <span className="metric-title">Total Hours Logged</span>
-          <Clock size={20} style={{ color: "rgb(var(--color-secondary))" }} />
+          <span style={{ color: "rgb(var(--color-secondary))" }}>
+            <Clock size={20} />
+          </span>
         </div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem" }}>
+        <div className="metric-value-row">
           <span className="metric-value" style={{ color: "rgb(var(--color-secondary))" }}>{totalHours}h</span>
-          <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>/ 40h target</span>
+          <span className="metric-value-target">/ 40h target</span>
         </div>
-        <div style={{ width: "100%", background: "rgba(255,255,255,0.05)", height: "6px", borderRadius: "3px", overflow: "hidden", marginTop: "0.5rem" }}>
-          <div 
-            style={{ 
-              width: `${progressPercent}%`, 
-              background: "linear-gradient(90deg, rgb(var(--color-secondary)) 0%, rgb(var(--color-primary)) 100%)", 
-              height: "100%", 
-              borderRadius: "3px",
-              transition: "width 0.5s ease-out"
-            }} 
+        <div className="progress-bar-track">
+          <div
+            className="progress-bar-fill"
+            style={{ width: `${progressPercent}%` }}
           />
         </div>
-        <span className="metric-footer" style={{ marginTop: "0.25rem" }}>
+        <span className="metric-footer metric-footer--small-gap">
           {progressPercent}% of a standard weekly workload
         </span>
       </div>
 
       {/* Submission status card */}
-      <div className="glass-card metric-card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span className="metric-title">Submission Status</span>
-          <CheckSquare size={20} style={{ color: status === "Submitted" ? "rgb(var(--color-success))" : "rgb(var(--color-warning))" }} />
-        </div>
-        <span className="metric-value" style={{ color: status === "Submitted" ? "rgb(var(--color-success))" : "rgb(var(--color-warning))" }}>
-          {status}
-        </span>
-        <span className="metric-footer" style={{ marginTop: "auto" }}>
-          {status === "Submitted" 
-            ? "Your hours are locked and submitted to payroll." 
+      <MetricCard
+        title="Submission Status"
+        icon={<CheckSquare size={20} />}
+        color={statusColor}
+        value={status}
+        footer={
+          status === "Submitted"
+            ? "Your hours are locked and submitted to payroll."
             : "Keep adding logs. Submit when complete."
-          }
-        </span>
-      </div>
+        }
+      />
 
       {/* Project count card */}
-      <div className="glass-card metric-card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span className="metric-title">Active Projects</span>
-          <Layers size={20} style={{ color: "rgb(var(--color-primary))" }} />
-        </div>
-        <span className="metric-value" style={{ color: "rgb(var(--color-primary))" }}>
-          {projectCount}
-        </span>
-        <span className="metric-footer" style={{ marginTop: "auto" }}>
-          Distinct charge codes/projects allocated
-        </span>
-      </div>
+      <MetricCard
+        title="Active Projects"
+        icon={<Layers size={20} />}
+        color="rgb(var(--color-primary))"
+        value={projectCount}
+        footer="Distinct charge codes/projects allocated"
+      />
 
       {/* Logged entries card */}
-      <div className="glass-card metric-card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span className="metric-title">Total Logs</span>
-          <FileText size={20} style={{ color: "rgb(var(--color-primary))" }} />
-        </div>
-        <span className="metric-value">
-          {totalEntries}
-        </span>
-        <span className="metric-footer" style={{ marginTop: "auto" }}>
-          Individual task entry rows recorded
-        </span>
-      </div>
+      <MetricCard
+        title="Total Logs"
+        icon={<FileText size={20} />}
+        color="rgb(var(--color-primary))"
+        value={totalEntries}
+        footer="Individual task entry rows recorded"
+      />
     </div>
   );
 }
