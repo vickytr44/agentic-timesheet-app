@@ -51,7 +51,7 @@ export default function Dashboard() {
   });
 
   // Fetch all timesheet entries & summary metrics
-  const refreshData = useCallback(async () => {
+  const refreshData = async () => {
     setLoading(true);
     try {
       const [dataEntries, dataSummary, dataLeaves, dataBalances] = await Promise.all([
@@ -75,7 +75,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [setState]);
+  };
 
   // Register the frontend tool to open the Leave form modal as a Human-in-the-Loop interaction
   useHumanInTheLoop({
@@ -113,7 +113,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     refreshData();
-  }, [refreshData]);
+  }, []);
 
   // When the AI agent finishes responding (isLoading transitions true → false),
   // re-fetch from the REST API so the table always reflects the latest backend state.
@@ -127,7 +127,7 @@ export default function Dashboard() {
       refreshData();
     }
     wasLoadingRef.current = isLoading;
-  }, [isLoading, refreshData]);
+  }, [isLoading]);
 
   const entries = state.entries || [];
   const status = state.status || "Draft";
@@ -140,26 +140,23 @@ export default function Dashboard() {
   };
 
   // Manual submission from the form
-  const handleManualAdd = useCallback(
-    async (newEntry: { date: string; project: string; hours: number; description: string }) => {
-      try {
-        await addTimesheetEntry({
-          Date: newEntry.date,
-          Project: newEntry.project,
-          Hours: newEntry.hours,
-          Description: newEntry.description,
-        });
-        await refreshData();
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Failed to add entry";
-        alert(message);
-        throw err;
-      }
-    },
-    [refreshData],
-  );
+  const handleManualAdd = async (newEntry: { date: string; project: string; hours: number; description: string }) => {
+    try {
+      await addTimesheetEntry({
+        Date: newEntry.date,
+        Project: newEntry.project,
+        Hours: newEntry.hours,
+        Description: newEntry.description,
+      });
+      await refreshData();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to add entry";
+      alert(message);
+      throw err;
+    }
+  };
 
-  const handleManualSubmit = useCallback(async () => {
+  const handleManualSubmit = async () => {
     if (!window.confirm("Are you sure you want to submit and lock your timesheet? Further edits will be disabled.")) return;
     try {
       await submitTimesheet();
@@ -168,9 +165,9 @@ export default function Dashboard() {
       const message = err instanceof Error ? err.message : "Failed to submit timesheet";
       alert(message);
     }
-  }, [refreshData]);
+  };
 
-  const handleManualUnlock = useCallback(async () => {
+  const handleManualUnlock = async () => {
     if (!window.confirm("Are you sure you want to unlock your timesheet? This will allow you to edit and modify entries again.")) return;
     try {
       await unlockTimesheet();
@@ -179,20 +176,17 @@ export default function Dashboard() {
       const message = err instanceof Error ? err.message : "Failed to unlock timesheet";
       alert(message);
     }
-  }, [refreshData]);
+  };
 
-  const handleManualDelete = useCallback(
-    async (id: string) => {
-      try {
-        await deleteTimesheetEntry(id);
-        await refreshData();
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Failed to delete entry";
-        alert(message);
-      }
-    },
-    [refreshData],
-  );
+  const handleManualDelete = async (id: string) => {
+    try {
+      await deleteTimesheetEntry(id);
+      await refreshData();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to delete entry";
+      alert(message);
+    }
+  };
 
   const isSubmitted = status === "Submitted";
 
