@@ -90,6 +90,19 @@ public class TimesheetAgentFactory(
 
         AIAgent agent = await agentCardResolver.GetAIAgentAsync();
 
+        var flintAgent = new ChatClientAgent(
+            chatClient: chatClient,
+            name: "flint_agent",
+            instructions: $"Today's date is {currentDateStr} ({currentDayOfWeekStr}). " +
+                          "You are the Flint Chart Assistant. Your job is to process user requests for charting and visualization. " +
+                          "Always use your tool to call the specialized A2A charting agent and provide the user with the result. " +
+                          "If the request is unrelated to charts, you must hand off back to the triage_agent.",
+            description: "Chart Generation and Visualization Assistant",
+            tools: [agent.AsAIFunction()]
+        );
+
+        var middlewareEnabledFlintAgent = flintAgent.AsBuilder().Use(CustomFunctionCallingMiddleware).Build();
+
         // 5. Create the Triage Agent (Coordinator)
         var triageAgent = new ChatClientAgent(
             chatClient: chatClient,
@@ -107,7 +120,7 @@ public class TimesheetAgentFactory(
                           "- If the user wants to apply for leave, submit a leave request, or check their personal leave balances/history, you MUST hand off to the leave_agent.\n" +
                           "- If the user wants to log hours, modify, submit, view, or unlock their timesheet, you MUST hand off to the timesheet_agent.\n" +
                           "- If the user asks general informational questions about company policies, employee benefits, remote work guidelines, leave rules/stipends, or HR handbooks, hand off to the handbook_agent.\n" +
-                          "- If the user wants to generate, construct, or visualize a chart (like a bar chart, line chart, pie chart, scatter plot, or histogram) from data, you MUST hand off to the flint-agent.\n" +
+                          "- If the user wants to generate, construct, or visualize a chart (like a bar chart, line chart, pie chart, scatter plot, or histogram) from data, you MUST hand off to the flint_agent.\n" +
                           "- If the request is generic (like hello), greet the user, explain what you can help with (timesheets, leaves, or handbook policies), and ask how you can assist."
                 },
                 AIContextProviders = [
@@ -120,8 +133,8 @@ public class TimesheetAgentFactory(
 
         // 6. Build the workflow using the Handoff pattern with explicit reasons (descriptions for the LLM)
         var workflow = AgentWorkflowBuilder.CreateHandoffBuilderWith(middlewareEnabledTriageAgent)
-            .WithHandoffs(middlewareEnabledTriageAgent, [middlewareEnabledTimeSheetAgent, middlewareEnabledLeaveAgent, middlewareEnabledHandbookAgent, agent])
-            .WithHandoffs([middlewareEnabledTimeSheetAgent, middlewareEnabledLeaveAgent, middlewareEnabledHandbookAgent, agent], middlewareEnabledTriageAgent)
+            .WithHandoffs(middlewareEnabledTriageAgent, [middlewareEnabledTimeSheetAgent, middlewareEnabledLeaveAgent, middlewareEnabledHandbookAgent, middlewareEnabledFlintAgent])
+            .WithHandoffs([middlewareEnabledTimeSheetAgent, middlewareEnabledLeaveAgent, middlewareEnabledHandbookAgent, middlewareEnabledFlintAgent], middlewareEnabledTriageAgent)
             .Build();
 
         // 6. Return the workflow wrapped with the FrontendToolBridge
