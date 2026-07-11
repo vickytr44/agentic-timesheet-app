@@ -3,6 +3,7 @@ using backend.Services;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
+using System.ComponentModel;
 using System.Text.Json;
 
 namespace backend;
@@ -98,7 +99,25 @@ public class TimesheetAgentFactory(
                           "Always use your tool to call the specialized A2A charting agent and provide the user with the result. " +
                           "If the request is unrelated to charts, you must hand off back to the triage_agent.",
             description: "Chart Generation and Visualization Assistant",
-            tools: [agent.AsAIFunction()]
+            tools: [
+                AIFunctionFactory.Create(
+                    async (
+                        [Description("The charting or visualization request (e.g. 'Create a chart for this data').")] string query,
+                        [Description("The dataset to visualize. Locate the complete dataset corresponding to the query (including all data rows/points and column headers) and provide it here.")] string dataset,
+                        CancellationToken cancellationToken) =>
+                    {
+                        // Combine query and dataset for the backend A2A agent
+                        string combinedQuery = $"User Request: {query}\n\nDataset:\n{dataset}";
+                        
+                        var innerFunction = agent.AsAIFunction();
+                        var arguments = new AIFunctionArguments { ["query"] = combinedQuery };
+                        var result = await innerFunction.InvokeAsync(arguments, cancellationToken);
+                        return result?.ToString() ?? string.Empty;
+                    },
+                    name: "FlintAgent",
+                    description: "Call the specialized A2A charting agent to generate and plot charts."
+                )
+            ]
         );
 
         var middlewareEnabledFlintAgent = flintAgent.AsBuilder().Use(CustomFunctionCallingMiddleware).Build();
