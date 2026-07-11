@@ -71,7 +71,7 @@ internal sealed class FrontendToolBridgeAgent : DelegatingAIAgent
                 {
                     if (content is FunctionCallContent fcc)
                     {
-                        bool isFrontendTool = fcc.Name == "setThemeColor" || fcc.Name == "showLeaveForm";
+                        bool isFrontendTool = fcc.Name == "setThemeColor" || fcc.Name == "showLeaveForm" || fcc.Name == "addTimesheetEntry";
                         bool isWrapped = fcc.CallId.Contains("_FunctionCall:") || fcc.CallId.Contains(":");
 
                         if (isFrontendTool && !isWrapped)

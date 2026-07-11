@@ -1,8 +1,8 @@
+using A2A;
 using backend.Services;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
 namespace backend;
@@ -17,7 +17,7 @@ public class TimesheetAgentFactory(
 {
     private readonly ILogger<TimesheetAgentFactory> _logger = logger;
 
-    public AIAgent CreateTimesheetAgent()
+    public async Task<AIAgent> CreateTimesheetAgent()
     {
         var currentDateStr = DateTime.Today.ToString("yyyy-MM-dd");
         var currentDayOfWeekStr = DateTime.Today.DayOfWeek.ToString();
@@ -84,7 +84,15 @@ public class TimesheetAgentFactory(
 
         var middlewareEnabledLeaveAgent = leaveAgent.AsBuilder().Use(CustomFunctionCallingMiddleware).Build();
 
-        // 4. Create the Triage Agent (Coordinator)
+        // 4. Resolve the A2A Flint agent
+        var path = "/.well-known/agent-card.json";
+        A2ACardResolver agentCardResolver = new A2ACardResolver(new Uri("http://localhost:5000"), new HttpClient(), agentCardPath: path, logger: _logger);
+
+        AIAgent agent = await agentCardResolver.GetAIAgentAsync();
+
+        var middlewareEnabledFlintAgent = agent.AsBuilder().Use(CustomFunctionCallingMiddleware).Build();
+
+        // 5. Create the Triage Agent (Coordinator)
         var triageAgent = new ChatClientAgent(
             chatClient: chatClient,
             options: new ChatClientAgentOptions
@@ -101,6 +109,7 @@ public class TimesheetAgentFactory(
                           "- If the user wants to apply for leave, submit a leave request, or check their personal leave balances/history, you MUST hand off to the leave_agent.\n" +
                           "- If the user wants to log hours, modify, submit, view, or unlock their timesheet, you MUST hand off to the timesheet_agent.\n" +
                           "- If the user asks general informational questions about company policies, employee benefits, remote work guidelines, leave rules/stipends, or HR handbooks, hand off to the handbook_agent.\n" +
+                          "- If the user wants to generate, construct, or visualize a chart (like a bar chart, line chart, pie chart, scatter plot, or histogram) from data, you MUST hand off to the flint-agent.\n" +
                           "- If the request is generic (like hello), greet the user, explain what you can help with (timesheets, leaves, or handbook policies), and ask how you can assist."
                 },
                 AIContextProviders = [
@@ -111,10 +120,10 @@ public class TimesheetAgentFactory(
 
         var middlewareEnabledTriageAgent = triageAgent.AsBuilder().Use(CustomFunctionCallingMiddleware).Build();
 
-        // 5. Build the workflow using the Handoff pattern with explicit reasons (descriptions for the LLM)
+        // 6. Build the workflow using the Handoff pattern with explicit reasons (descriptions for the LLM)
         var workflow = AgentWorkflowBuilder.CreateHandoffBuilderWith(middlewareEnabledTriageAgent)
-            .WithHandoffs(middlewareEnabledTriageAgent, [middlewareEnabledTimeSheetAgent, middlewareEnabledLeaveAgent, middlewareEnabledHandbookAgent])
-            .WithHandoffs([middlewareEnabledTimeSheetAgent, middlewareEnabledLeaveAgent, middlewareEnabledHandbookAgent], middlewareEnabledTriageAgent)
+            .WithHandoffs(middlewareEnabledTriageAgent, [middlewareEnabledTimeSheetAgent, middlewareEnabledLeaveAgent, middlewareEnabledHandbookAgent, middlewareEnabledFlintAgent])
+            .WithHandoffs([middlewareEnabledTimeSheetAgent, middlewareEnabledLeaveAgent, middlewareEnabledHandbookAgent, middlewareEnabledFlintAgent], middlewareEnabledTriageAgent)
             .Build();
 
         // 6. Return the workflow wrapped with the FrontendToolBridge
