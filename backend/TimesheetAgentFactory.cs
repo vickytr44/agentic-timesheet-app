@@ -90,8 +90,6 @@ public class TimesheetAgentFactory(
 
         AIAgent agent = await agentCardResolver.GetAIAgentAsync();
 
-        var middlewareEnabledFlintAgent = agent.AsBuilder().Use(CustomFunctionCallingMiddleware).Build();
-
         // 5. Create the Triage Agent (Coordinator)
         var triageAgent = new ChatClientAgent(
             chatClient: chatClient,
@@ -122,8 +120,8 @@ public class TimesheetAgentFactory(
 
         // 6. Build the workflow using the Handoff pattern with explicit reasons (descriptions for the LLM)
         var workflow = AgentWorkflowBuilder.CreateHandoffBuilderWith(middlewareEnabledTriageAgent)
-            .WithHandoffs(middlewareEnabledTriageAgent, [middlewareEnabledTimeSheetAgent, middlewareEnabledLeaveAgent, middlewareEnabledHandbookAgent, middlewareEnabledFlintAgent])
-            .WithHandoffs([middlewareEnabledTimeSheetAgent, middlewareEnabledLeaveAgent, middlewareEnabledHandbookAgent, middlewareEnabledFlintAgent], middlewareEnabledTriageAgent)
+            .WithHandoffs(middlewareEnabledTriageAgent, [middlewareEnabledTimeSheetAgent, middlewareEnabledLeaveAgent, middlewareEnabledHandbookAgent, agent])
+            .WithHandoffs([middlewareEnabledTimeSheetAgent, middlewareEnabledLeaveAgent, middlewareEnabledHandbookAgent, agent], middlewareEnabledTriageAgent)
             .Build();
 
         // 6. Return the workflow wrapped with the FrontendToolBridge

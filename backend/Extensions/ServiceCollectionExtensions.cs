@@ -107,10 +107,10 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<ILogger<TimesheetAgentFactory>>()
         ));
 
-        services.AddSingleton(async sp =>
+        services.AddSingleton(sp =>
         {
             var factory = sp.GetRequiredService<TimesheetAgentFactory>();
-            return await factory.CreateTimesheetAgent();
+            return factory.CreateTimesheetAgent().GetAwaiter().GetResult();
         });
 
         return services;
