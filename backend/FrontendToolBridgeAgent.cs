@@ -39,7 +39,7 @@ internal sealed class FrontendToolBridgeAgent : DelegatingAIAgent
                 {
                     var filteredContents = msg.Contents.Where(c => 
                         c is not FunctionCallContent fcc || 
-                        !(fcc.Name == "setThemeColor" || fcc.Name == "showLeaveForm") || 
+                        !(fcc.Name == "setThemeColor" || fcc.Name == "showLeaveForm") || fcc.Name == "addTimesheetEntry" ||
                         fcc.CallId.Contains("_FunctionCall:") || fcc.CallId.Contains(":")
                     ).ToList();
 

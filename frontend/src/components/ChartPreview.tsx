@@ -59,10 +59,10 @@ export function ChartPreview({ spec }: ChartPreviewProps) {
         } else if (activeEngine === "echarts") {
           const option = assembleECharts(parsedSpec);
           option.backgroundColor = "transparent"; // transparent for dark dashboard card overlay
-          
+
           const containerWidth = chartContainerRef.current!.clientWidth;
           const containerHeight = chartContainerRef.current!.clientHeight;
-          
+
           const specWidth = parsedSpec?.chart_spec?.canvasSize?.width || parsedSpec?.chart_spec?.baseSize?.width || 500;
           const specHeight = parsedSpec?.chart_spec?.canvasSize?.height || parsedSpec?.chart_spec?.baseSize?.height || 360;
 
@@ -91,7 +91,7 @@ export function ChartPreview({ spec }: ChartPreviewProps) {
           }
         } else if (activeEngine === "chartjs") {
           const config = assembleChartjs(parsedSpec);
-          
+
           // Custom dark theme styles mapping for Chart.js
           if (config && config.options) {
             if (config.options.scales) {
@@ -115,7 +115,7 @@ export function ChartPreview({ spec }: ChartPreviewProps) {
 
           const canvas = document.createElement("canvas");
           chartContainerRef.current!.appendChild(canvas);
-          
+
           const instance = new Chart(canvas, config);
           chartjsInstanceRef.current = instance;
         }
@@ -160,11 +160,10 @@ export function ChartPreview({ spec }: ChartPreviewProps) {
           <button
             key={engine.id}
             onClick={() => setActiveEngine(engine.id)}
-            className={`flex-1 text-xs py-1.5 px-3 rounded-md font-medium transition-all duration-200 cursor-pointer ${
-              activeEngine === engine.id
-                ? "bg-zinc-700 text-white shadow-sm font-semibold"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
-            }`}
+            className={`flex-1 text-xs py-1.5 px-3 rounded-md font-medium transition-all duration-200 cursor-pointer ${activeEngine === engine.id
+              ? "bg-zinc-700 text-white shadow-sm font-semibold"
+              : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+              }`}
           >
             {engine.label}
           </button>
