@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useCoAgent, useCopilotChat } from "@copilotkit/react-core";
-import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { useHumanInTheLoop, useRenderTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import { CheckCircle, RotateCcw } from "lucide-react";
 
@@ -13,6 +13,12 @@ import LeaveRequestsTable from "./LeaveRequestsTable";
 import SidebarInstructions from "./SidebarInstructions";
 import LeaveModal from "./LeaveModal";
 import TimesheetModal from "./TimesheetModal";
+import dynamic from "next/dynamic";
+
+const ChartPreview = dynamic(
+  () => import("./ChartPreview").then((mod) => mod.ChartPreview),
+  { ssr: false }
+);
 import {
   fetchTimesheetEntries,
   fetchTimesheetSummary,
@@ -145,6 +151,33 @@ export default function Dashboard() {
         />
       );
     },
+  });
+
+  useRenderTool({
+    name: "FlintAgent",
+    parameters: z.object({
+      query: z.string().optional().describe("The user query")
+    }),
+    render: ({ status, parameters, result }) => {
+      if (status === "inProgress" || status === "executing") {
+        return <div className="text-zinc-400 text-sm italic mb-2">Generating chart...</div>;
+      }
+
+      console.log('Flint tool result raw:', result);
+      let chartData = null;
+      try {
+        chartData = typeof result === 'string' ? JSON.parse(result) : result;
+        console.log('Parsed chartData:', chartData);
+      } catch (e) {
+        console.error('Failed to parse chart result:', e);
+      }
+
+      return (
+        <div className="mt-2 w-full">
+          <ChartPreview spec={chartData} />
+        </div>
+      );
+    }
   });
 
   useEffect(() => {
