@@ -135,11 +135,18 @@ public class TimesheetAgentFactory(
                           "CRITICAL: Before routing or calling any handoff tools, check the conversation history:\n" +
                           "- If the history shows that the frontend tool `showLeaveForm` has already been called and completed (returned a result like 'Success' or 'Cancelled') for the current request, DO NOT hand off to the leave_agent. Instead, directly respond to the user: if 'Success', say that their leave request has been submitted successfully; if 'Cancelled', say that the request was cancelled.\n" +
                           "- If a handoff tool was already called and executed for the current request, do not call it again unless a new user request has been made.\n\n" +
-                          "Routing rules:\n" +
-                          "- If the user wants to apply for leave, submit a leave request, or check their personal leave balances/history, you MUST hand off to the leave_agent.\n" +
-                          "- If the user wants to log hours, modify, submit, view, or unlock their timesheet, you MUST hand off to the timesheet_agent.\n" +
+                          "MULTI-STEP REQUEST HANDLING (HIGHEST PRIORITY):\n" +
+                          "Before applying routing rules, first determine if the user's request requires multiple specialists to fulfill.\n" +
+                          "If a request needs data that hasn't been fetched yet AND processing of that data (e.g., charting, summarizing), follow this strategy:\n" +
+                          "1. FIRST, hand off to the data-providing agent to retrieve the required data.\n" +
+                          "2. WAIT for that agent to return the data in the conversation.\n" +
+                          "3. THEN, hand off to the processing agent, which will use the data already present in the conversation history.\n" +
+                          "NEVER hand off to a processing agent if the data it needs has not been fetched yet.\n\n" +
+                          "Routing rules (apply AFTER checking for multi-step requests):\n" +
+                          "- If the user wants to apply for leave, submit a leave request, or check their personal leave balances/history, hand off to the leave_agent.\n" +
+                          "- If the user wants to log hours, modify, submit, view, or unlock their timesheet, hand off to the timesheet_agent.\n" +
                           "- If the user asks general informational questions about company policies, employee benefits, remote work guidelines, leave rules/stipends, or HR handbooks, hand off to the handbook_agent.\n" +
-                          "- If the user wants to generate, construct, or visualize a chart (like a bar chart, line chart, pie chart, scatter plot, or histogram) from data, you MUST hand off to the flint_agent.\n" +
+                          "- If the user wants to generate or visualize a chart and the required data is already available in the conversation, hand off to the flint_agent.\n" +
                           "- If the request is generic (like hello), greet the user, explain what you can help with (timesheets, leaves, or handbook policies), and ask how you can assist."
                 },
                 AIContextProviders = [
