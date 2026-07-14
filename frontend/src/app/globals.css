@@ -1168,3 +1168,22 @@ h4 {
   align-items: center;
   justify-content: center;
 }
+
+.chart-preview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 16rem;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card-light);
+  border-radius: 8px;
+  color: #94a3b8;
+}
+
+.chart-preview-empty .empty-icon {
+  width: 2rem;
+  height: 2rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.5;
+}

@@ -43,7 +43,6 @@ export function ChartPreview({ spec, theme = "dark" }: ChartPreviewProps) {
       return;
     }
 
-    let activeResizeHandler: (() => void) | null = null;
     let resizeObserver: ResizeObserver | null = null;
 
     const renderChart = async () => {
@@ -61,27 +60,10 @@ export function ChartPreview({ spec, theme = "dark" }: ChartPreviewProps) {
           const option = assembleECharts(parsedSpec);
           if (theme === 'dark') option.backgroundColor = "transparent";
 
-          const containerWidth = chartContainerRef.current!.clientWidth;
-          const containerHeight = chartContainerRef.current!.clientHeight;
-
-          const specWidth = parsedSpec?.chart_spec?.canvasSize?.width || parsedSpec?.chart_spec?.baseSize?.width || 500;
-          const specHeight = parsedSpec?.chart_spec?.canvasSize?.height || parsedSpec?.chart_spec?.baseSize?.height || 360;
-
           const echartTheme = theme === "dark" ? "dark" : undefined;
-          const instance = echarts.init(chartContainerRef.current!, echartTheme, {
-            width: containerWidth || specWidth,
-            height: containerHeight || specHeight
-          });
+          const instance = echarts.init(chartContainerRef.current!, echartTheme);
           echartsInstanceRef.current = instance;
           instance.setOption(option);
-
-          const handleResize = () => {
-            if (echartsInstanceRef.current) {
-              echartsInstanceRef.current.resize();
-            }
-          };
-          window.addEventListener("resize", handleResize);
-          activeResizeHandler = handleResize;
 
           if (typeof window !== "undefined" && window.ResizeObserver) {
             resizeObserver = new window.ResizeObserver(() => {
@@ -130,19 +112,16 @@ export function ChartPreview({ spec, theme = "dark" }: ChartPreviewProps) {
 
     return () => {
       cleanupCharts();
-      if (activeResizeHandler) {
-        window.removeEventListener("resize", activeResizeHandler);
-      }
       if (resizeObserver) {
         resizeObserver.disconnect();
       }
     };
-  }, [spec, activeEngine]);
+  }, [spec, activeEngine, theme]);
 
   if (!spec) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 border border-zinc-700 bg-zinc-800 rounded text-zinc-400">
-        <BarChart2 className="w-8 h-8 mb-2 opacity-50" />
+      <div className="chart-preview-empty">
+        <BarChart2 className="empty-icon" />
         <p>No chart data available</p>
       </div>
     );
