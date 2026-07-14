@@ -7,9 +7,10 @@ import { BarChart2 } from "lucide-react";
 
 interface ChartPreviewProps {
   spec: any;
+  theme?: "dark" | "light";
 }
 
-export function ChartPreview({ spec }: ChartPreviewProps) {
+export function ChartPreview({ spec, theme = "dark" }: ChartPreviewProps) {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const [activeEngine, setActiveEngine] = useState<"vega" | "echarts" | "chartjs">("vega");
   const echartsInstanceRef = useRef<echarts.ECharts | null>(null);
@@ -51,14 +52,14 @@ export function ChartPreview({ spec }: ChartPreviewProps) {
       try {
         if (activeEngine === "vega") {
           const vegaSpec = assembleVegaLite(parsedSpec);
-          await embed(chartContainerRef.current!, vegaSpec, {
-            actions: false,
-            theme: 'dark',
-            renderer: 'svg',
-          });
+          
+          const embedOpts: any = { actions: false, renderer: 'svg' };
+          if (theme === 'dark') embedOpts.theme = 'dark';
+          
+          await embed(chartContainerRef.current!, vegaSpec, embedOpts);
         } else if (activeEngine === "echarts") {
           const option = assembleECharts(parsedSpec);
-          option.backgroundColor = "transparent"; // transparent for dark dashboard card overlay
+          if (theme === 'dark') option.backgroundColor = "transparent";
 
           const containerWidth = chartContainerRef.current!.clientWidth;
           const containerHeight = chartContainerRef.current!.clientHeight;
@@ -66,7 +67,8 @@ export function ChartPreview({ spec }: ChartPreviewProps) {
           const specWidth = parsedSpec?.chart_spec?.canvasSize?.width || parsedSpec?.chart_spec?.baseSize?.width || 500;
           const specHeight = parsedSpec?.chart_spec?.canvasSize?.height || parsedSpec?.chart_spec?.baseSize?.height || 360;
 
-          const instance = echarts.init(chartContainerRef.current!, "dark", {
+          const echartTheme = theme === "dark" ? "dark" : undefined;
+          const instance = echarts.init(chartContainerRef.current!, echartTheme, {
             width: containerWidth || specWidth,
             height: containerHeight || specHeight
           });
@@ -92,8 +94,8 @@ export function ChartPreview({ spec }: ChartPreviewProps) {
         } else if (activeEngine === "chartjs") {
           const config = assembleChartjs(parsedSpec);
 
-          // Custom dark theme styles mapping for Chart.js
-          if (config && config.options) {
+          // Apply dark theme overrides only if theme is dark
+          if (theme === "dark" && config && config.options) {
             if (config.options.scales) {
               Object.keys(config.options.scales).forEach((key) => {
                 const scale = (config.options.scales as any)[key];

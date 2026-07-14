@@ -448,7 +448,7 @@ export default function Dashboard() {
                       </span>
                       <span className="light-chart-card-badge">flint-chart</span>
                     </div>
-                    <ChartPreview spec={chartSpec} />
+                    <ChartPreview spec={chartSpec} theme="light" />
                   </div>
                 ))}
               </div>
