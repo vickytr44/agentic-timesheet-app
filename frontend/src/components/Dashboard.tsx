@@ -15,6 +15,36 @@ import LeaveModal from "./LeaveModal";
 import TimesheetModal from "./TimesheetModal";
 import dynamic from "next/dynamic";
 
+const ChartBubble = ({ result, onView, onAddChart }: { result: any, onView: () => void, onAddChart: (chart: any) => void }) => {
+  useEffect(() => {
+    let chartData = null;
+    try {
+      chartData = typeof result === 'string' ? JSON.parse(result) : result;
+    } catch (e) {
+      console.error('Failed to parse chart result:', e);
+    }
+    if (chartData) {
+      onAddChart(chartData);
+    }
+  }, [result, onAddChart]);
+
+  return (
+    <div className="view-chart-bubble">
+      <div className="view-chart-icon">📊</div>
+      <div className="view-chart-text">
+        <strong>Chart Generated</strong>
+        <span>Your visualization is ready</span>
+      </div>
+      <button 
+        className="view-chart-btn"
+        onClick={onView}
+      >
+        View Chart
+      </button>
+    </div>
+  );
+};
+
 const ChartPreview = dynamic(
   () => import("./ChartPreview").then((mod) => mod.ChartPreview),
   { ssr: false }
@@ -34,6 +64,18 @@ import type { AgentState, LeaveRequest, LeaveBalances, LeaveFormData } from "@/l
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Chart view states
+  const [isChartOverlayOpen, setIsChartOverlayOpen] = useState(false);
+  const [generatedCharts, setGeneratedCharts] = useState<any[]>([]);
+
+  const handleAddChart = useCallback((chartData: any) => {
+    setGeneratedCharts((prev) => {
+      const str = JSON.stringify(chartData);
+      if (prev.some(c => JSON.stringify(c) === str)) return prev;
+      return [...prev, chartData];
+    });
+  }, []);
 
   // Tab states
   const [activeTab, setActiveTab] = useState<"Timesheet" | "Leaves">("Timesheet");
@@ -160,23 +202,27 @@ export default function Dashboard() {
     }),
     render: ({ status, parameters, result }) => {
       if (status === "inProgress" || status === "executing") {
-        return <div className="text-zinc-400 text-sm italic mb-2">Generating chart...</div>;
+        return (
+          <div className="view-chart-bubble" style={{ justifyContent: "center" }}>
+            <div className="view-chart-text">
+              <strong>Generating chart...</strong>
+              <span>Please wait</span>
+            </div>
+          </div>
+        );
       }
 
-      console.log('Flint tool result raw:', result);
-      let chartData = null;
-      try {
-        chartData = typeof result === 'string' ? JSON.parse(result) : result;
-        console.log('Parsed chartData:', chartData);
-      } catch (e) {
-        console.error('Failed to parse chart result:', e);
+      if (status === "complete" && result) {
+        return (
+          <ChartBubble 
+            result={result} 
+            onView={() => setIsChartOverlayOpen(true)} 
+            onAddChart={handleAddChart} 
+          />
+        );
       }
-
-      return (
-        <div className="mt-2 w-full">
-          <ChartPreview spec={chartData} />
-        </div>
-      );
+      
+      return null;
     }
   });
 
@@ -377,6 +423,39 @@ export default function Dashboard() {
         }}
         initialData={prefilledLeaveData}
       />
+
+      {/* Charts Overlay */}
+      {isChartOverlayOpen && (
+        <div className="charts-overlay">
+          <div className="charts-overlay-header">
+            <h2>Generated Visualizations</h2>
+            <button className="close-overlay-btn" onClick={() => setIsChartOverlayOpen(false)}>
+              Back to Chat
+            </button>
+          </div>
+          <div className="charts-overlay-content">
+            {generatedCharts.length === 0 ? (
+              <div className="empty-state" style={{ margin: "auto", textAlign: "center" }}>
+                <p style={{ color: "var(--text-secondary-light)" }}>No charts generated yet.</p>
+              </div>
+            ) : (
+              <div className="charts-grid-light">
+                {generatedCharts.map((chartSpec, i) => (
+                  <div key={i} className="light-chart-card">
+                    <div className="light-chart-card-header">
+                      <span className="light-chart-card-title">
+                        {chartSpec?.chart_spec?.chartType || "Visualization"}
+                      </span>
+                      <span className="light-chart-card-badge">flint-chart</span>
+                    </div>
+                    <ChartPreview spec={chartSpec} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

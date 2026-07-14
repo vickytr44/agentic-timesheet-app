@@ -97,6 +97,7 @@ public class TimesheetAgentFactory(
             instructions: $"Today's date is {currentDateStr} ({currentDayOfWeekStr}). " +
                           "You are the Flint Chart Assistant. Your job is to process user requests for charting and visualization. " +
                           "Always use your tool to call the specialized A2A charting agent and provide the user with the result. " +
+                          "Do NOT output any markdown image tags, placeholders, or image links (e.g. `![Chart]()`) in your text response. " +
                           "If the request is unrelated to charts, you must hand off back to the triage_agent.",
             description: "Chart Generation and Visualization Assistant",
             tools: [
