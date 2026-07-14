@@ -153,7 +153,7 @@ export function ChartPreview({ spec }: ChartPreviewProps) {
   ] as const;
 
   return (
-    <div className="w-full border border-zinc-700 bg-zinc-900 rounded p-4 flex flex-col items-center gap-4">
+    <div className="chart-preview-card">
       {/* Engine Selection Tabs */}
       <div className="engine-tabs-container">
         {engines.map((engine) => (
@@ -169,7 +169,7 @@ export function ChartPreview({ spec }: ChartPreviewProps) {
 
       <div
         ref={chartContainerRef}
-        className="w-full h-[360px] relative overflow-hidden"
+        className="chart-render-container"
       >
         {/* Chart engine will render its visual output here */}
       </div>
