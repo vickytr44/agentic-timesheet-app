@@ -1169,6 +1169,14 @@ h4 {
   justify-content: center;
 }
 
+/* Ensure Vega-Lite wrapper centers its chart */
+.chart-render-container.vega-embed {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .chart-preview-empty {
   display: flex;
   flex-direction: column;
