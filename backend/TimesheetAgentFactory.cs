@@ -37,8 +37,8 @@ public class TimesheetAgentFactory(
                     Instructions = $"Today's date is {currentDateStr} ({currentDayOfWeekStr}). " +
                           "You are an expert Timesheet Assistant. Your job is to help users manage, log, review, and submit their timesheets. " +
                           "Use your tools to query or mutate timesheet records. Always be friendly, concise, and helpful. " +
-                          "If the user asks questions about company policies, employee benefits, remote work, leaves, or HR handbooks, " +
-                          "you must hand off back to the triage_agent.",
+                          "If the user asks to generate or visualize a chart based on the timesheet data you've retrieved, hand off to the flint_agent. " +
+                          "If the request is completely unrelated to timesheets or charting, let the user know and suggest they start a new request.",
                     Tools = timesheetTools
                 }
             }
@@ -57,8 +57,8 @@ public class TimesheetAgentFactory(
                           "You are an expert Employee Handbook and HR Policy Assistant. " +
                           "Your job is to search the employee handbook to answer the user's policy questions. " +
                           "Always use your search tool to look up policies and answer clearly based ONLY on the retrieved facts. " +
-                          "If the user asks to log hours, modify, submit, or unlock timesheets, " +
-                          "you must hand off back to the triage_agent.",
+                          "If the user asks to generate or visualize a chart based on the data you've retrieved, hand off to the flint_agent. " +
+                          "If the request is completely unrelated to handbook policies or charting, let the user know and suggest they start a new request.",
             description: "Employee Handbook Policy Assistant",
             tools: TimesheetAgentTools.CreateHandbookTools(handbookService)
         );
@@ -77,8 +77,8 @@ public class TimesheetAgentFactory(
                           "For example: " +
                           "- A 3-day leave starting on a Monday (like 2026-06-22) covers Monday, Tuesday, Wednesday, so the end date MUST be Wednesday 2026-06-24 (not June 25). " +
                           "- A 3-day leave starting on a Friday (like 2026-06-19) covers Friday, Monday, Tuesday, so the end date MUST be Tuesday 2026-06-23. " +
-                          "If the request is unrelated to leaves (e.g. they want to log hours, modify timesheets, search general handbook policies), " +
-                          "you must hand off back to the triage_agent.",
+                          "If the user asks to generate or visualize a chart based on the leave data you've retrieved, hand off to the flint_agent. " +
+                          "If the request is completely unrelated to leaves or charting, let the user know and suggest they start a new request.",
             description: "Leave Management Assistant",
             tools: TimesheetAgentTools.CreateLeaveTools(leaveService)
         );
@@ -98,7 +98,7 @@ public class TimesheetAgentFactory(
                           "You are the Flint Chart Assistant. Your job is to process user requests for charting and visualization. " +
                           "Always use your tool to call the specialized A2A charting agent and provide the user with the result. " +
                           "Do NOT output any markdown image tags, placeholders, or image links (e.g. `![Chart]()`) in your text response. " +
-                          "If the request is unrelated to charts, you must hand off back to the triage_agent.",
+                          "If the request is unrelated to charts, let the user know and suggest they start a new request.",
             description: "Chart Generation and Visualization Assistant",
             tools: [
                 AIFunctionFactory.Create(
@@ -138,11 +138,10 @@ public class TimesheetAgentFactory(
                           "- If a handoff tool was already called and executed for the current request, do not call it again unless a new user request has been made.\n\n" +
                           "MULTI-STEP REQUEST HANDLING (HIGHEST PRIORITY):\n" +
                           "Before applying routing rules, first determine if the user's request requires multiple specialists to fulfill.\n" +
-                          "If a request needs data that hasn't been fetched yet AND processing of that data (e.g., charting, summarizing), follow this strategy:\n" +
-                          "1. FIRST, hand off to the data-providing agent to retrieve the required data.\n" +
-                          "2. WAIT for that agent to return the data in the conversation.\n" +
-                          "3. THEN, hand off to the processing agent, which will use the data already present in the conversation history.\n" +
-                          "NEVER hand off to a processing agent if the data it needs has not been fetched yet.\n\n" +
+                          "If a request needs data that hasn't been fetched yet AND processing of that data (e.g., charting, visualizing), follow this strategy:\n" +
+                          "Hand off to the data-providing agent (timesheet_agent, leave_agent, or handbook_agent) to retrieve the required data.\n" +
+                          "The specialist agent will automatically forward to flint_agent for charting once the data is ready.\n" +
+                          "Do NOT hand off directly to flint_agent if the required data has not been fetched yet.\n\n" +
                           "Routing rules (apply AFTER checking for multi-step requests):\n" +
                           "- If the user wants to apply for leave, submit a leave request, or check their personal leave balances/history, hand off to the leave_agent.\n" +
                           "- If the user wants to log hours, modify, submit, view, or unlock their timesheet, hand off to the timesheet_agent.\n" +
@@ -161,7 +160,7 @@ public class TimesheetAgentFactory(
         // 6. Build the workflow using the Handoff pattern with explicit reasons (descriptions for the LLM)
         var workflow = AgentWorkflowBuilder.CreateHandoffBuilderWith(middlewareEnabledTriageAgent)
             .WithHandoffs(middlewareEnabledTriageAgent, [middlewareEnabledTimeSheetAgent, middlewareEnabledLeaveAgent, middlewareEnabledHandbookAgent, middlewareEnabledFlintAgent])
-            .WithHandoffs([middlewareEnabledTimeSheetAgent, middlewareEnabledLeaveAgent, middlewareEnabledHandbookAgent, middlewareEnabledFlintAgent], middlewareEnabledTriageAgent)
+            .WithHandoffs([middlewareEnabledTimeSheetAgent, middlewareEnabledLeaveAgent, middlewareEnabledHandbookAgent], middlewareEnabledFlintAgent)
             .Build();
 
         // 6. Return the workflow wrapped with the FrontendToolBridge
