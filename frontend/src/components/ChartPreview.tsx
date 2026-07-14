@@ -155,15 +155,12 @@ export function ChartPreview({ spec }: ChartPreviewProps) {
   return (
     <div className="w-full border border-zinc-700 bg-zinc-900 rounded p-4 flex flex-col items-center gap-4">
       {/* Engine Selection Tabs */}
-      <div className="flex space-x-1 bg-zinc-800 p-1 rounded-lg w-full max-w-xs self-start">
+      <div className="engine-tabs-container">
         {engines.map((engine) => (
           <button
             key={engine.id}
             onClick={() => setActiveEngine(engine.id)}
-            className={`flex-1 text-xs py-1.5 px-3 rounded-md font-medium transition-all duration-200 cursor-pointer ${activeEngine === engine.id
-              ? "bg-zinc-700 text-white shadow-sm font-semibold"
-              : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
-              }`}
+            className={`engine-tab-btn ${activeEngine === engine.id ? "active" : ""}`}
           >
             {engine.label}
           </button>

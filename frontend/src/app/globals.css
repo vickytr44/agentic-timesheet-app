@@ -11,15 +11,20 @@
   --border-accent: rgba(99, 102, 241, 0.2);
 
   /* HSL Tailored Colors */
-  --color-primary: 243 95% 70%;      /* Indigo */
-  --color-secondary: 195 100% 50%;    /* Cyan */
-  --color-success: 142 70% 50%;      /* Emerald */
-  --color-warning: 38 92% 50%;        /* Amber */
-  --color-danger: 350 100% 60%;       /* Crimson */
+  --color-primary: 243 95% 70%;
+  /* Indigo */
+  --color-secondary: 195 100% 50%;
+  /* Cyan */
+  --color-success: 142 70% 50%;
+  /* Emerald */
+  --color-warning: 38 92% 50%;
+  /* Amber */
+  --color-danger: 350 100% 60%;
+  /* Crimson */
 
   --text-main: #f3f4f6;
   --text-muted: #9ca3af;
-  
+
   --shadow-premium: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
   --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -41,7 +46,8 @@ body {
 }
 
 /* Background Ambient Glows */
-body::before, body::after {
+body::before,
+body::after {
   content: '';
   position: absolute;
   width: 500px;
@@ -95,7 +101,10 @@ body::after {
 }
 
 /* Typography & Titles */
-h1, h2, h3, h4 {
+h1,
+h2,
+h3,
+h4 {
   font-family: var(--font-heading);
   letter-spacing: -0.02em;
 }
@@ -146,8 +155,13 @@ h1, h2, h3, h4 {
 }
 
 @keyframes pulse-glow {
-  0% { box-shadow: 0 0 5px rgba(var(--color-success) / 0.2); }
-  100% { box-shadow: 0 0 15px rgba(var(--color-success) / 0.4); }
+  0% {
+    box-shadow: 0 0 5px rgba(var(--color-success) / 0.2);
+  }
+
+  100% {
+    box-shadow: 0 0 15px rgba(var(--color-success) / 0.4);
+  }
 }
 
 /* Card Styling (Glassmorphism) */
@@ -565,7 +579,7 @@ h1, h2, h3, h4 {
 /* Progress bar */
 .progress-bar-track {
   width: 100%;
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   height: 6px;
   border-radius: 3px;
   overflow: hidden;
@@ -627,7 +641,7 @@ h1, h2, h3, h4 {
 /* Refresh button */
 .btn-icon {
   padding: 0.5rem;
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border-card);
 }
 
@@ -685,7 +699,7 @@ h1, h2, h3, h4 {
 .sidebar-footer {
   margin-top: auto;
   padding: 1rem;
-  background: rgba(255,255,255,0.02);
+  background: rgba(255, 255, 255, 0.02);
   border-radius: 8px;
   border: 1px dashed var(--border-card);
 }
@@ -715,7 +729,7 @@ h1, h2, h3, h4 {
 
 .td-id {
   font-size: 0.75rem;
-  color: rgba(255,255,255,0.2);
+  color: rgba(255, 255, 255, 0.2);
   margin-top: 0.25rem;
   user-select: all;
 }
@@ -774,7 +788,7 @@ h1, h2, h3, h4 {
 .loading-spinner {
   width: 24px;
   height: 24px;
-  border: 2px solid rgba(255,255,255,0.1);
+  border: 2px solid rgba(255, 255, 255, 0.1);
   border-top-color: rgb(var(--color-primary));
   border-radius: 50%;
 }
@@ -881,13 +895,25 @@ h1, h2, h3, h4 {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 /* Spin animation for the refresh icon */
@@ -896,8 +922,13 @@ h1, h2, h3, h4 {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ─────────────── Charts View Overlay ─────────────── */
@@ -923,8 +954,15 @@ h1, h2, h3, h4 {
 }
 
 @keyframes slideIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .charts-overlay-header {
@@ -1069,4 +1107,41 @@ h1, h2, h3, h4 {
 
 .view-chart-btn:active {
   transform: translateY(0);
+}
+
+/* ─────────────── Chart Engine Tabs ─────────────── */
+.engine-tabs-container {
+  display: flex;
+  gap: 4px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 8px;
+  align-self: flex-start;
+  width: 100%;
+  max-width: 300px;
+}
+
+.engine-tab-btn {
+  flex: 1;
+  font-size: 0.85rem;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  transition: all 0.2s;
+}
+
+.engine-tab-btn:hover {
+  color: #334155;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.engine-tab-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-weight: 600;
 }
